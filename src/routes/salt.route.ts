@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { verifyJWT, JWTError } from "../services/jwt.service.js";
-import { createProvider, type SaltProvider } from "../providers/index.js";
+import { createProvider } from "../providers/index.js";
+import type { SaltProvider } from "../types/index.js";
 import { config } from "../config/index.js";
 import { logger } from "../utils/logger.js";
 
@@ -70,7 +71,7 @@ saltRoutes.post("/salt", async (c) => {
 
     // Get salt
     const saltProvider = await getProvider();
-    const salt = await saltProvider.getSalt(sub, audience);
+    const salt = await saltProvider.getSalt(sub, audience, body.jwt);
 
     logger.info("Salt generated successfully", {
       provider: verified.provider.name,
