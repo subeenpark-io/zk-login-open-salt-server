@@ -1,0 +1,126 @@
+# zkLogin Salt Server Configuration
+# Copy this file to config.yaml and modify as needed
+
+# Server settings
+server:
+  port: 3000
+  host: "0.0.0.0"
+
+# Logging configuration
+logging:
+  level: info # debug, info, warn, error
+  format: json # json, pretty
+
+# Security settings
+security:
+  corsOrigins: "*" # Use specific origins in production: ["https://app.example.com"]
+  rateLimitMax: 100 # Max requests per window
+  rateLimitWindowMs: 60000 # 1 minute
+
+# Salt Provider Configuration
+# Choose ONE of the following provider configurations:
+
+# ============================================
+# Option 1: Local Provider (자체 시드)
+# ============================================
+provider:
+  type: local
+  seed:
+    # Method A: Environment variable (recommended for containers)
+    type: env
+    envVar: MASTER_SEED # Will read from $MASTER_SEED
+
+
+    # Method B: Direct value (testing only - NOT for production!)
+    # type: env
+    # value: "0x1234567890abcdef..."
+
+    # Method C: AWS Secrets Manager
+    # type: aws
+    # secretName: "zklogin/production-seed"
+    # region: "us-west-2"
+    # secretKey: "masterSeed"  # JSON key in secret
+
+    # Method D: HashiCorp Vault
+    # type: vault
+    # address: "https://vault.example.com"
+    # path: "secret/data/zklogin/seed"
+    # key: "masterSeed"
+    # tokenEnvVar: "VAULT_TOKEN"
+
+    # Method E: File
+    # type: file
+    # path: "/run/secrets/master-seed"
+    # key: "masterSeed"  # If file is JSON
+
+# ============================================
+# Option 2: Remote Provider (외부 서버 프록시)
+# ============================================
+# provider:
+#   type: remote
+#   endpoint: "https://salt.api.mystenlabs.com/get_salt"
+#   timeout: 10000
+#   retryCount: 2
+#   # apiKey: "your-api-key"  # If required
+
+# ============================================
+# Option 3: Hybrid Provider (Primary + Fallback)
+# ============================================
+# provider:
+#   type: hybrid
+#   fallbackEnabled: true
+#   fallbackAfterSeconds: 60
+#   primary:
+#     type: local
+#     seed:
+#       type: aws
+#       secretName: "zklogin/production-seed"
+#       region: "us-west-2"
+#   fallback:
+#     type: remote
+#     endpoint: "https://salt.api.mystenlabs.com/get_salt"
+#     timeout: 10000
+
+# ============================================
+# Option 4: Router Provider (멀티테넌트)
+# ============================================
+# provider:
+#   type: router
+#   defaultProvider: mysten
+#   providers:
+#     internal:
+#       type: local
+#       seed:
+#         type: aws
+#         secretName: "zklogin/internal-seed"
+#     mysten:
+#       type: remote
+#       endpoint: "https://salt.api.mystenlabs.com/get_salt"
+#   routes:
+#     - name: internal-apps
+#       match:
+#         audience: "*.mycompany.com"
+#       provider: internal
+#     - name: partner-apps
+#       match:
+#         audience: "*.partner.io"
+#       provider: mysten
+
+# OAuth Provider Configuration (optional - uses defaults if omitted)
+# oauth:
+#   - name: google
+#     jwksUri: "https://www.googleapis.com/oauth2/v3/certs"
+#     issuers: ["https://accounts.google.com"]
+#     enabled: true
+#   - name: facebook
+#     jwksUri: "https://www.facebook.com/.well-known/oauth/openid/jwks/"
+#     issuers: ["https://www.facebook.com"]
+#     enabled: true
+#   - name: apple
+#     jwksUri: "https://appleid.apple.com/auth/keys"
+#     issuers: ["https://appleid.apple.com"]
+#     enabled: true
+#   - name: custom-provider
+#     jwksUri: "https://auth.mycompany.com/.well-known/jwks.json"
+#     issuers: ["https://auth.mycompany.com"]
+#     enabled: true

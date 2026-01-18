@@ -1,6 +1,6 @@
-import type { OAuthProvider } from "../types/index.js";
+import type { OAuthProviderConfig } from "../types/index.js";
 
-const DEFAULT_PROVIDERS: OAuthProvider[] = [
+const DEFAULT_PROVIDERS: OAuthProviderConfig[] = [
   {
     name: "google",
     jwksUri: "https://www.googleapis.com/oauth2/v3/certs",
@@ -28,17 +28,22 @@ const DEFAULT_PROVIDERS: OAuthProvider[] = [
   },
   {
     name: "slack",
-    jwksUri: "https://slack.com/oauth/v2/keys",
+    jwksUri: "https://slack.com/openid/connect/keys",
     issuers: ["https://slack.com"],
+  },
+  {
+    name: "microsoft",
+    jwksUri: "https://login.microsoftonline.com/common/discovery/v2.0/keys",
+    issuers: ["https://login.microsoftonline.com"],
   },
 ];
 
-export function loadOAuthProviders(): OAuthProvider[] {
-  // TODO: Support custom provider configuration via environment variables
+export function loadOAuthProviders(): OAuthProviderConfig[] {
   return DEFAULT_PROVIDERS;
 }
 
-export function getProviderByIssuer(issuer: string): OAuthProvider | undefined {
-  return DEFAULT_PROVIDERS.find((p) => p.issuers.includes(issuer));
+export function getProviderByIssuer(issuer: string): OAuthProviderConfig | undefined {
+  return DEFAULT_PROVIDERS.find((p) => p.issuers.some((i) => issuer.startsWith(i)));
 }
 
+export type { OAuthProviderConfig } from "../types/index.js";

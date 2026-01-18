@@ -1,18 +1,11 @@
-import type { SaltProviderConfig } from "../config/salt-providers.js";
-
-export interface SaltProvider {
-  name: string;
-  getSalt(sub: string, aud: string): Promise<string>;
-  healthCheck(): Promise<boolean>;
-  destroy(): Promise<void>;
-}
+import type { ProviderConfig, SaltProvider } from "../types/index.js";
 
 export { LocalProvider } from "./local.provider.js";
 export { RemoteProvider } from "./remote.provider.js";
 export { HybridProvider } from "./hybrid.provider.js";
 export { RouterProvider } from "./router.provider.js";
 
-export async function createProvider(config: SaltProviderConfig): Promise<SaltProvider> {
+export async function createProvider(config: ProviderConfig): Promise<SaltProvider> {
   switch (config.type) {
     case "local": {
       const { LocalProvider } = await import("./local.provider.js");

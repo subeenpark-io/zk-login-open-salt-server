@@ -1,16 +1,18 @@
-import type { SaltProvider } from "./index.js";
 import type {
-  RouterProviderConfig,
-  RouterRule,
+  HealthCheckResult,
   LocalProviderConfig,
   RemoteProviderConfig,
-} from "../config/salt-providers.js";
+  RouterProviderConfig,
+  RouterRule,
+  SaltProvider,
+} from "../types/index.js";
 import { LocalProvider } from "./local.provider.js";
 import { RemoteProvider } from "./remote.provider.js";
 import { logger } from "../utils/logger.js";
 
 export class RouterProvider implements SaltProvider {
   readonly name = "router";
+  readonly type = "router";
   private providers: Map<string, SaltProvider>;
   private routes: RouterRule[];
   private defaultProvider: string;
@@ -36,7 +38,7 @@ export class RouterProvider implements SaltProvider {
     return new RouterProvider(providers, config.routes, config.defaultProvider);
   }
 
-  async getSalt(sub: string, aud: string): Promise<string> {
+  async getSalt(sub: string, aud: string, jwt?: string): Promise<string> {
     const providerName = this.resolveProvider(aud);
     const provider = this.providers.get(providerName);
 
@@ -45,7 +47,7 @@ export class RouterProvider implements SaltProvider {
     }
 
     logger.debug("Routing to provider", { provider: providerName, aud });
-    return provider.getSalt(sub, aud);
+    return provider.getSalt(sub, aud, jwt);
   }
 
   private resolveProvider(aud: string): string {
@@ -70,11 +72,17 @@ export class RouterProvider implements SaltProvider {
     return false;
   }
 
-  async healthCheck(): Promise<boolean> {
+  async healthCheck(): Promise<HealthCheckResult> {
     const results = await Promise.all(
       Array.from(this.providers.values()).map((p) => p.healthCheck())
     );
-    return results.some((r) => r);
+    const healthy = results.some((r) => r.healthy);
+    const message = results.find((r) => r.message)?.message;
+
+    return {
+      healthy,
+      message,
+    };
   }
 
   async destroy(): Promise<void> {

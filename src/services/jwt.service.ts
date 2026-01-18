@@ -1,5 +1,5 @@
 import * as jose from "jose";
-import type { OAuthProvider, JWTClaims, VerifyResult } from "../types/index.js";
+import type { OAuthProviderConfig } from "../config/oauth-providers.js";
 import { getProviderByIssuer } from "../config/oauth-providers.js";
 import { logger } from "../utils/logger.js";
 
@@ -7,6 +7,20 @@ import { logger } from "../utils/logger.js";
 const JWKS_CACHE_TTL_MS = 60 * 60 * 1000;
 // Refresh JWKS 5 minutes before its TTL expires
 const REFRESH_BEFORE_EXPIRATION_MS = 5 * 60 * 1000;
+
+export interface JWTPayload {
+  iss: string;
+  sub: string;
+  aud: string | string[];
+  exp: number;
+  iat: number;
+  nonce?: string;
+}
+
+export interface VerifiedJWT {
+  payload: JWTPayload;
+  provider: OAuthProviderConfig;
+}
 
 interface JwksCacheEntry {
   jwks: jose.JWTVerifyGetKey;
@@ -16,10 +30,15 @@ interface JwksCacheEntry {
 const jwksCache = new Map<string, JwksCacheEntry>();
 const scheduledRefreshes = new Map<string, NodeJS.Timeout>();
 
-function scheduleJwksRefresh(provider: OAuthProvider, jwksUri: string, refreshAfterMs: number) {
+function scheduleJwksRefresh(
+  provider: OAuthProviderConfig,
+  jwksUri: string,
+  refreshAfterMs: number
+) {
   // Clear any existing scheduled refresh for this JWKS URI
-  if (scheduledRefreshes.has(jwksUri)) {
-    clearTimeout(scheduledRefreshes.get(jwksUri)!);
+  const existing = scheduledRefreshes.get(jwksUri);
+  if (existing) {
+    clearTimeout(existing);
     scheduledRefreshes.delete(jwksUri);
   }
 
@@ -32,9 +51,9 @@ function scheduleJwksRefresh(provider: OAuthProvider, jwksUri: string, refreshAf
       // Reschedule for next refresh
       scheduleJwksRefresh(provider, jwksUri, JWKS_CACHE_TTL_MS - REFRESH_BEFORE_EXPIRATION_MS);
     } catch (refreshError) {
-      logger.error(`Failed to refresh JWKS for ${provider.name} from ${jwksUri}: ${refreshError}`);
-      // On failure, retry sooner or rely on on-demand fetching
-      // For simplicity, for now, we'll just log and let on-demand fetching handle it if background fails
+      logger.error(`Failed to refresh JWKS for ${provider.name} from ${jwksUri}`, {
+        error: refreshError,
+      });
     } finally {
       scheduledRefreshes.delete(jwksUri);
     }
@@ -43,73 +62,73 @@ function scheduleJwksRefresh(provider: OAuthProvider, jwksUri: string, refreshAf
   scheduledRefreshes.set(jwksUri, timeoutId);
 }
 
-export async function verifyJWT(token: string): Promise<VerifyResult> {
-  let claims: JWTClaims;
+export async function verifyJWT(token: string): Promise<VerifiedJWT> {
+  // Decode without verification to get issuer
+  const unverified = jose.decodeJwt(token);
+
+  if (!unverified.iss) {
+    throw new JWTError("invalid_jwt", "JWT missing issuer claim");
+  }
+
+  const provider = getProviderByIssuer(unverified.iss);
+  if (!provider) {
+    throw new JWTError("unknown_provider", `Unknown OAuth provider: ${unverified.iss}`);
+  }
+
+  // Get or create JWKS client with TTL caching
+  let jwksEntry = jwksCache.get(provider.jwksUri);
+
+  if (!jwksEntry || jwksEntry.expiresAt < Date.now()) {
+    logger.debug(`Fetching new JWKS for ${provider.name} from ${provider.jwksUri}`);
+    const jwks = jose.createRemoteJWKSet(new URL(provider.jwksUri));
+    jwksEntry = { jwks, expiresAt: Date.now() + JWKS_CACHE_TTL_MS };
+    jwksCache.set(provider.jwksUri, jwksEntry);
+    // Schedule background refresh
+    scheduleJwksRefresh(
+      provider,
+      provider.jwksUri,
+      JWKS_CACHE_TTL_MS - REFRESH_BEFORE_EXPIRATION_MS
+    );
+  } else {
+    logger.debug(`Using cached JWKS for ${provider.name}`);
+  }
 
   try {
-    // Decode without verification to get issuer
-    const unverified = jose.decodeJwt(token);
-
-    if (!unverified.iss) {
-      return { valid: false, error: "invalid_jwt: missing issuer claim" };
-    }
-
-    const provider = getProviderByIssuer(unverified.iss);
-    if (!provider) {
-      return { valid: false, error: `unknown_provider: ${unverified.iss}` };
-    }
-
-    // Get or create JWKS client with TTL caching
-    let jwksEntry = jwksCache.get(provider.jwksUri);
-
-    if (!jwksEntry || jwksEntry.expiresAt < Date.now()) {
-      logger.debug(`Fetching new JWKS for ${provider.name} from ${provider.jwksUri}`);
-      const jwks = jose.createRemoteJWKSet(new URL(provider.jwksUri));
-      jwksEntry = { jwks, expiresAt: Date.now() + JWKS_CACHE_TTL_MS };
-      jwksCache.set(provider.jwksUri, jwksEntry);
-      // Schedule background refresh
-      scheduleJwksRefresh(provider, provider.jwksUri, JWKS_CACHE_TTL_MS - REFRESH_BEFORE_EXPIRATION_MS);
-    } else {
-      logger.debug(`Using cached JWKS for ${provider.name}`);
-    }
-
     const { payload } = await jose.jwtVerify(token, jwksEntry.jwks, {
-      issuer: provider.issuers, // Validate against all known issuers for the provider
+      issuer: provider.issuers,
     });
 
-    if (!payload.sub) {
-      return { valid: false, error: "invalid_jwt: missing subject claim" };
-    }
-    if (!payload.aud) {
-      return { valid: false, error: "invalid_jwt: missing audience claim" };
-    }
-
-    claims = payload as JWTClaims;
-
-    logger.info("JWT verified successfully", {
+    logger.debug("JWT verified successfully", {
       provider: provider.name,
-      sub: maskString(claims.sub),
+      sub: maskString(payload.sub ?? ""),
     });
 
-    return { valid: true, claims };
+    return {
+      payload: payload as JWTPayload,
+      provider,
+    };
   } catch (error) {
     if (error instanceof jose.errors.JWTExpired) {
-      return { valid: false, error: "jwt_expired" };
+      throw new JWTError("jwt_expired", "JWT has expired");
     }
     if (error instanceof jose.errors.JWTClaimValidationFailed) {
-      return { valid: false, error: `invalid_claims: ${error.message}` };
+      throw new JWTError("invalid_claims", "JWT claim validation failed");
     }
     if (error instanceof jose.errors.JWSSignatureVerificationFailed) {
-      return { valid: false, error: "invalid_signature" };
+      throw new JWTError("invalid_signature", "JWT signature verification failed");
     }
-    if (error instanceof TypeError && error.message.includes("Invalid URL")) {
-      return { valid: false, error: "invalid_jwks_uri: malformed URL" };
-    }
-    if (error instanceof Error) {
-      logger.error("JWT verification failed with unexpected error", { error: error.message });
-      return { valid: false, error: `verification_failed: ${error.message}` };
-    }
-    return { valid: false, error: "verification_failed: unknown error" };
+
+    throw new JWTError("verification_failed", "JWT verification failed");
+  }
+}
+
+export class JWTError extends Error {
+  constructor(
+    public code: string,
+    message: string
+  ) {
+    super(message);
+    this.name = "JWTError";
   }
 }
 
