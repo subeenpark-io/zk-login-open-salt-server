@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { verifyJWT } from "../services/jwt.service.js";
+import { verifyJWT, JWTError } from "../services/jwt.service.js";
 import { createProvider } from "../providers/index.js";
 import type { SaltProvider } from "../types/index.js";
 import { config } from "../config/index.js";
@@ -31,20 +31,11 @@ saltRoutes.post("/salt", async (c) => {
       );
     }
 
+    // Verify JWT - throws JWTError if invalid
     const verified = await verifyJWT(body.jwt);
+    const { payload } = verified;
 
-    if (!verified.result.valid) {
-      return c.json<ErrorResponse>(
-        {
-          error: "invalid_jwt",
-          message: verified.result.error ?? "JWT verification failed",
-        },
-        401
-      );
-    }
-
-    const claims = verified.result.claims;
-    if (!claims?.sub) {
+    if (!payload.sub) {
       return c.json<ErrorResponse>(
         {
           error: "invalid_jwt",
@@ -54,7 +45,7 @@ saltRoutes.post("/salt", async (c) => {
       );
     }
 
-    const audience = Array.isArray(claims.aud) ? claims.aud[0] : claims.aud;
+    const audience = Array.isArray(payload.aud) ? payload.aud[0] : payload.aud;
     if (!audience) {
       return c.json<ErrorResponse>(
         {
@@ -66,14 +57,24 @@ saltRoutes.post("/salt", async (c) => {
     }
 
     const saltProvider = await getProvider();
-    const salt = await saltProvider.getSalt(claims.sub, audience, body.jwt);
+    const salt = await saltProvider.getSalt(payload.sub, audience, body.jwt);
 
     logger.info("Salt generated successfully", {
-      provider: verified.provider?.name,
+      provider: verified.provider.name,
     });
 
     return c.json<SaltResponse>({ salt });
   } catch (error) {
+    if (error instanceof JWTError) {
+      return c.json<ErrorResponse>(
+        {
+          error: error.code,
+          message: error.message,
+        },
+        401
+      );
+    }
+
     logger.error("Salt generation failed", { error });
 
     return c.json<ErrorResponse>(
