@@ -33,7 +33,7 @@ export interface OAuthProvider {
 
 export interface SaltProvider {
   name: string;
-  type: "local" | "remote" | "hybrid";
+  type: "local" | "remote" | "hybrid" | "router";
 
   /**
    * sub와 aud를 기반으로 salt 생성
@@ -59,19 +59,90 @@ export interface HealthCheckResult {
   message?: string | undefined;
 }
 
-export interface ProviderConfig {
-  type: "local" | "remote" | "hybrid";
-  // local
-  seed?: string | undefined;
-  seedSource?: "env" | "aws" | "vault" | undefined;
-  // remote
-  endpoint?: string | undefined;
+// Seed injection methods
+export interface SeedSourceEnv {
+  type: "env";
+  /** Environment variable name (default: MASTER_SEED) */
+  envVar?: string | undefined;
+  /** Direct seed value (hex string, for testing only) */
+  value?: string | undefined;
+}
+
+export interface SeedSourceAws {
+  type: "aws";
+  /** AWS Secrets Manager secret name */
+  secretName: string;
+  /** AWS region (default: us-west-2) */
+  region?: string | undefined;
+  /** JSON key in secret (default: masterSeed) */
+  secretKey?: string | undefined;
+}
+
+export interface SeedSourceVault {
+  type: "vault";
+  /** Vault server address */
+  address: string;
+  /** Secret path in Vault */
+  path: string;
+  /** Key name in secret (default: masterSeed) */
+  key?: string | undefined;
+  /** Token env var name (default: VAULT_TOKEN) */
+  tokenEnvVar?: string | undefined;
+}
+
+export interface SeedSourceFile {
+  type: "file";
+  /** Path to file containing seed (hex string or JSON) */
+  path: string;
+  /** JSON key if file is JSON (default: masterSeed) */
+  key?: string | undefined;
+}
+
+export type SeedSource = SeedSourceEnv | SeedSourceAws | SeedSourceVault | SeedSourceFile;
+
+export interface LocalProviderConfig {
+  type: "local";
+  /** Seed injection configuration */
+  seed: SeedSource;
+}
+
+export interface RemoteProviderConfig {
+  type: "remote";
+  endpoint: string;
   timeout?: number | undefined;
   apiKey?: string | undefined;
-  // hybrid
-  primary?: ProviderConfig | undefined;
-  fallback?: ProviderConfig | undefined;
+  retryCount?: number | undefined;
 }
+
+export interface HybridProviderConfig {
+  type: "hybrid";
+  primary: LocalProviderConfig;
+  fallback: RemoteProviderConfig;
+  fallbackEnabled: boolean;
+  fallbackAfterSeconds: number;
+}
+
+export interface RouterRule {
+  name: string;
+  match: {
+    audience?: string;
+    issuer?: string;
+  };
+  provider: string;
+}
+
+export interface RouterProviderConfig {
+  type: "router";
+  defaultProvider: string;
+  providers: Record<string, LocalProviderConfig | RemoteProviderConfig>;
+  routes: RouterRule[];
+}
+
+export type ProviderConfig =
+  | LocalProviderConfig
+  | RemoteProviderConfig
+  | HybridProviderConfig
+  | RouterProviderConfig;
 
 // ============================================
 // API 관련 타입 (Person C 담당)
@@ -100,10 +171,33 @@ export interface HealthResponse {
 // Config 타입
 // ============================================
 
-export interface AppConfig {
+export interface ServerConfig {
   port: number;
-  logLevel: "debug" | "info" | "warn" | "error";
-  corsOrigins: string;
+  host?: string | undefined;
+}
+
+export interface LoggingConfig {
+  level: "debug" | "info" | "warn" | "error";
+  format?: "json" | "pretty" | undefined;
+}
+
+export interface SecurityConfig {
+  corsOrigins: string | string[];
   rateLimitMax: number;
+  rateLimitWindowMs?: number | undefined;
+}
+
+export interface OAuthProviderConfig {
+  name: string;
+  jwksUri: string;
+  issuers: string[];
+  enabled?: boolean | undefined;
+}
+
+export interface AppConfig {
+  server: ServerConfig;
+  logging: LoggingConfig;
+  security: SecurityConfig;
   provider: ProviderConfig;
+  oauth?: OAuthProviderConfig[] | undefined;
 }

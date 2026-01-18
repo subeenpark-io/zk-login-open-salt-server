@@ -33,10 +33,12 @@
     "npm": "10.8.2"
   },
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "3.693.0",
     "@noble/hashes": "1.8.0",
     "hono": "4.11.4",
     "jose": "5.10.0",
-    "shamir": "0.7.1"
+    "shamir": "0.7.1",
+    "yaml": "2.6.1"
   },
   "devDependencies": {
     "@eslint/js": "9.39.2",

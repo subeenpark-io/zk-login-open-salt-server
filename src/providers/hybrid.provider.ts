@@ -1,11 +1,11 @@
-import type { SaltProvider } from "./index.js";
-import type { HybridProviderConfig } from "../config/salt-providers.js";
+import type { HealthCheckResult, HybridProviderConfig, SaltProvider } from "../types/index.js";
 import { LocalProvider } from "./local.provider.js";
 import { RemoteProvider } from "./remote.provider.js";
 import { logger } from "../utils/logger.js";
 
 export class HybridProvider implements SaltProvider {
   readonly name = "hybrid";
+  readonly type = "hybrid";
   private primary: LocalProvider;
   private fallback: RemoteProvider;
   private fallbackEnabled: boolean;
@@ -36,24 +36,23 @@ export class HybridProvider implements SaltProvider {
     );
   }
 
-  async getSalt(sub: string, aud: string): Promise<string> {
-    // Check if we should use fallback
+  async getSalt(sub: string, aud: string, jwt?: string): Promise<string> {
     if (this.shouldUseFallback()) {
       logger.info("Using fallback provider due to recent primary failure");
-      return this.fallback.getSalt(sub, aud);
+      return this.fallback.getSalt(sub, aud, jwt);
     }
 
     try {
       const salt = await this.primary.getSalt(sub, aud);
-      this.primaryFailedAt = null; // Reset on success
+      this.primaryFailedAt = null;
       return salt;
     } catch (error) {
-      logger.error("Primary provider failed", { error });
       this.primaryFailedAt = Date.now();
+      logger.error("Primary provider failed", { error });
 
       if (this.fallbackEnabled) {
         logger.info("Falling back to remote provider");
-        return this.fallback.getSalt(sub, aud);
+        return this.fallback.getSalt(sub, aud, jwt);
       }
 
       throw error;
@@ -69,17 +68,17 @@ export class HybridProvider implements SaltProvider {
     return elapsedSeconds < this.fallbackAfterSeconds;
   }
 
-  async healthCheck(): Promise<boolean> {
+  async healthCheck(): Promise<HealthCheckResult> {
     const primaryHealth = await this.primary.healthCheck();
-    if (primaryHealth) {
-      return true;
+    if (primaryHealth.healthy) {
+      return primaryHealth;
     }
 
     if (this.fallbackEnabled) {
       return this.fallback.healthCheck();
     }
 
-    return false;
+    return primaryHealth;
   }
 
   async destroy(): Promise<void> {

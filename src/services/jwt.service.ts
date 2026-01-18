@@ -33,10 +33,10 @@ export async function verifyJWT(token: string): Promise<VerifiedJWT> {
   }
 
   // Get or create JWKS client
-  let jwks = jwksCache.get(provider.jwksUrl);
+  let jwks = jwksCache.get(provider.jwksUri);
   if (!jwks) {
-    jwks = jose.createRemoteJWKSet(new URL(provider.jwksUrl));
-    jwksCache.set(provider.jwksUrl, jwks);
+    jwks = jose.createRemoteJWKSet(new URL(provider.jwksUri));
+    jwksCache.set(provider.jwksUri, jwks);
   }
 
   try {
