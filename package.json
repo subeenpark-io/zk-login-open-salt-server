@@ -1,0 +1,51 @@
+{
+  "name": "zklogin-salt-server",
+  "version": "0.1.0",
+  "description": "개발자들이 쉽게 배포할 수 있는 zkLogin Salt Server 오픈소스 구현체",
+  "main": "dist/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "generate-seed": "tsx scripts/generate-seed.ts",
+    "shard-seed": "tsx scripts/shard-seed.ts",
+    "recover-seed": "tsx scripts/recover-seed.ts"
+  },
+  "keywords": [
+    "sui",
+    "zklogin",
+    "salt",
+    "oauth",
+    "web3"
+  ],
+  "author": "",
+  "license": "Apache-2.0",
+  "engines": {
+    "node": "22.5.0",
+    "npm": "10.8.2"
+  },
+  "dependencies": {
+    "@noble/hashes": "1.8.0",
+    "hono": "4.11.4",
+    "jose": "5.10.0",
+    "shamir": "0.7.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.2",
+    "@types/node": "20.19.30",
+    "eslint": "9.39.2",
+    "prettier": "3.8.0",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.53.0",
+    "vitest": "1.6.1"
+  }
+}
