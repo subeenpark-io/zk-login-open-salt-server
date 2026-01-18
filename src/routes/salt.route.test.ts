@@ -1,6 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Hono } from "hono";
 
+// Define JWTError class for mocking
+class JWTError extends Error {
+  code: string;
+  constructor(code: string, message: string) {
+    super(message);
+    this.code = code;
+    this.name = "JWTError";
+  }
+}
+
 const mockVerifyJWT = vi.fn();
 const mockCreateProvider = vi.fn();
 const mockLogger = {
@@ -12,6 +22,7 @@ const mockLogger = {
 
 vi.mock("../services/jwt.service.js", () => ({
   verifyJWT: mockVerifyJWT,
+  JWTError,
 }));
 
 vi.mock("../providers/index.js", () => ({
@@ -37,6 +48,7 @@ describe("POST /salt", () => {
 
     vi.doMock("../services/jwt.service.js", () => ({
       verifyJWT: mockVerifyJWT,
+      JWTError,
     }));
 
     vi.doMock("../providers/index.js", () => ({
@@ -89,9 +101,9 @@ describe("POST /salt", () => {
   });
 
   it("should return 401 when JWT verification fails", async () => {
-    mockVerifyJWT.mockResolvedValue({
-      result: { valid: false, error: "JWT signature verification failed" },
-    });
+    mockVerifyJWT.mockRejectedValue(
+      new JWTError("invalid_signature", "JWT signature verification failed")
+    );
 
     const res = await app.request("/v1/salt", {
       method: "POST",
@@ -102,15 +114,13 @@ describe("POST /salt", () => {
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body).toEqual({
-      error: "invalid_jwt",
+      error: "invalid_signature",
       message: "JWT signature verification failed",
     });
   });
 
   it("should return 401 when JWT is expired", async () => {
-    mockVerifyJWT.mockResolvedValue({
-      result: { valid: false, error: "JWT has expired" },
-    });
+    mockVerifyJWT.mockRejectedValue(new JWTError("jwt_expired", "JWT has expired"));
 
     const res = await app.request("/v1/salt", {
       method: "POST",
@@ -121,24 +131,25 @@ describe("POST /salt", () => {
     expect(res.status).toBe(401);
     const body = await res.json();
     expect(body).toEqual({
-      error: "invalid_jwt",
+      error: "jwt_expired",
       message: "JWT has expired",
     });
   });
 
   it("should return 400 when JWT is missing subject claim", async () => {
     mockVerifyJWT.mockResolvedValue({
-      result: {
-        valid: true,
-        claims: {
-          iss: "https://accounts.google.com",
-          sub: "",
-          aud: "test-client-id",
-          exp: Math.floor(Date.now() / 1000) + 3600,
-          iat: Math.floor(Date.now() / 1000),
-        },
+      payload: {
+        iss: "https://accounts.google.com",
+        sub: "",
+        aud: "test-client-id",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
       },
-      provider: { name: "google", jwksUri: "https://www.googleapis.com/oauth2/v3/certs" },
+      provider: {
+        name: "google",
+        jwksUri: "https://www.googleapis.com/oauth2/v3/certs",
+        issuers: ["https://accounts.google.com"],
+      },
     });
 
     const res = await app.request("/v1/salt", {
@@ -157,17 +168,18 @@ describe("POST /salt", () => {
 
   it("should return 400 when JWT is missing audience claim", async () => {
     mockVerifyJWT.mockResolvedValue({
-      result: {
-        valid: true,
-        claims: {
-          iss: "https://accounts.google.com",
-          sub: "user-123",
-          aud: "",
-          exp: Math.floor(Date.now() / 1000) + 3600,
-          iat: Math.floor(Date.now() / 1000),
-        },
+      payload: {
+        iss: "https://accounts.google.com",
+        sub: "user-123",
+        aud: "",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
       },
-      provider: { name: "google", jwksUri: "https://www.googleapis.com/oauth2/v3/certs" },
+      provider: {
+        name: "google",
+        jwksUri: "https://www.googleapis.com/oauth2/v3/certs",
+        issuers: ["https://accounts.google.com"],
+      },
     });
 
     const res = await app.request("/v1/salt", {
@@ -188,21 +200,23 @@ describe("POST /salt", () => {
     const mockSalt = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
 
     mockVerifyJWT.mockResolvedValue({
-      result: {
-        valid: true,
-        claims: {
-          iss: "https://accounts.google.com",
-          sub: "user-123",
-          aud: "test-client-id",
-          exp: Math.floor(Date.now() / 1000) + 3600,
-          iat: Math.floor(Date.now() / 1000),
-        },
+      payload: {
+        iss: "https://accounts.google.com",
+        sub: "user-123",
+        aud: "test-client-id",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
       },
-      provider: { name: "google", jwksUri: "https://www.googleapis.com/oauth2/v3/certs" },
+      provider: {
+        name: "google",
+        jwksUri: "https://www.googleapis.com/oauth2/v3/certs",
+        issuers: ["https://accounts.google.com"],
+      },
     });
 
     mockCreateProvider.mockResolvedValue({
       name: "local",
+      type: "local",
       getSalt: vi.fn().mockResolvedValue(mockSalt),
       healthCheck: vi.fn().mockResolvedValue({ healthy: true }),
       destroy: vi.fn().mockResolvedValue(undefined),
@@ -223,21 +237,23 @@ describe("POST /salt", () => {
     const mockSalt = "0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890";
 
     mockVerifyJWT.mockResolvedValue({
-      result: {
-        valid: true,
-        claims: {
-          iss: "https://accounts.google.com",
-          sub: "user-456",
-          aud: ["primary-client-id", "secondary-client-id"],
-          exp: Math.floor(Date.now() / 1000) + 3600,
-          iat: Math.floor(Date.now() / 1000),
-        },
+      payload: {
+        iss: "https://accounts.google.com",
+        sub: "user-456",
+        aud: ["primary-client-id", "secondary-client-id"],
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
       },
-      provider: { name: "google", jwksUri: "https://www.googleapis.com/oauth2/v3/certs" },
+      provider: {
+        name: "google",
+        jwksUri: "https://www.googleapis.com/oauth2/v3/certs",
+        issuers: ["https://accounts.google.com"],
+      },
     });
 
     mockCreateProvider.mockResolvedValue({
       name: "local",
+      type: "local",
       getSalt: vi.fn().mockResolvedValue(mockSalt),
       healthCheck: vi.fn().mockResolvedValue({ healthy: true }),
       destroy: vi.fn().mockResolvedValue(undefined),
@@ -256,17 +272,18 @@ describe("POST /salt", () => {
 
   it("should return 500 on internal error", async () => {
     mockVerifyJWT.mockResolvedValue({
-      result: {
-        valid: true,
-        claims: {
-          iss: "https://accounts.google.com",
-          sub: "user-123",
-          aud: "test-client-id",
-          exp: Math.floor(Date.now() / 1000) + 3600,
-          iat: Math.floor(Date.now() / 1000),
-        },
+      payload: {
+        iss: "https://accounts.google.com",
+        sub: "user-123",
+        aud: "test-client-id",
+        exp: Math.floor(Date.now() / 1000) + 3600,
+        iat: Math.floor(Date.now() / 1000),
       },
-      provider: { name: "google", jwksUri: "https://www.googleapis.com/oauth2/v3/certs" },
+      provider: {
+        name: "google",
+        jwksUri: "https://www.googleapis.com/oauth2/v3/certs",
+        issuers: ["https://accounts.google.com"],
+      },
     });
 
     mockCreateProvider.mockRejectedValue(new Error("Provider initialization failed"));
