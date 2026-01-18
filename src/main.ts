@@ -1,3 +1,4 @@
+import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { routes } from "./routes/index.js";
 import { errorHandler } from "./middleware/error-handler.js";
@@ -17,7 +18,14 @@ const port = config.port;
 
 logger.info(`Starting zkLogin Salt Server on port ${port.toString()}`);
 
-export default {
-  port,
-  fetch: app.fetch,
-};
+serve(
+  {
+    fetch: app.fetch,
+    port,
+  },
+  (info: { port: number }) => {
+    logger.info(`Server listening on http://localhost:${info.port.toString()}`);
+  }
+);
+
+export default app;
