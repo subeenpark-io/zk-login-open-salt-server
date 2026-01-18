@@ -1,44 +1,44 @@
-export interface OAuthProviderConfig {
-  name: string;
-  jwksUrl: string;
-}
+import type { OAuthProvider } from "../types/index.js";
 
-const DEFAULT_PROVIDERS: OAuthProviderConfig[] = [
+const DEFAULT_PROVIDERS: OAuthProvider[] = [
   {
     name: "google",
-    jwksUrl: "https://www.googleapis.com/oauth2/v3/certs",
+    jwksUri: "https://www.googleapis.com/oauth2/v3/certs",
+    issuers: ["https://accounts.google.com"],
   },
   {
     name: "facebook",
-    jwksUrl: "https://www.facebook.com/.well-known/oauth/openid/jwks/",
+    jwksUri: "https://www.facebook.com/.well-known/oauth/openid/jwks/",
+    issuers: ["https://www.facebook.com"],
   },
   {
     name: "apple",
-    jwksUrl: "https://appleid.apple.com/auth/keys",
+    jwksUri: "https://appleid.apple.com/auth/keys",
+    issuers: ["https://appleid.apple.com"],
   },
   {
     name: "twitch",
-    jwksUrl: "https://id.twitch.tv/oauth2/keys",
+    jwksUri: "https://id.twitch.tv/oauth2/keys",
+    issuers: ["https://id.twitch.tv/oauth2"],
+  },
+  {
+    name: "kakao",
+    jwksUri: "https://kauth.kakao.com/.well-known/jwks.json",
+    issuers: ["https://kauth.kakao.com"],
+  },
+  {
+    name: "slack",
+    jwksUri: "https://slack.com/oauth/v2/keys",
+    issuers: ["https://slack.com"],
   },
 ];
 
-export function loadOAuthProviders(): OAuthProviderConfig[] {
+export function loadOAuthProviders(): OAuthProvider[] {
   // TODO: Support custom provider configuration via environment variables
   return DEFAULT_PROVIDERS;
 }
 
-export function getProviderByIssuer(issuer: string): OAuthProviderConfig | undefined {
-  const issuerToProvider: Record<string, string> = {
-    "https://accounts.google.com": "google",
-    "https://www.facebook.com": "facebook",
-    "https://appleid.apple.com": "apple",
-    "https://id.twitch.tv/oauth2": "twitch",
-  };
-
-  const providerName = issuerToProvider[issuer];
-  if (!providerName) {
-    return undefined;
-  }
-
-  return DEFAULT_PROVIDERS.find((p) => p.name === providerName);
+export function getProviderByIssuer(issuer: string): OAuthProvider | undefined {
+  return DEFAULT_PROVIDERS.find((p) => p.issuers.includes(issuer));
 }
+
