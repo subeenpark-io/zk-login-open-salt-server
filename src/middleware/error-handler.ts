@@ -1,7 +1,6 @@
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { HTTPException } from "hono/http-exception";
-import { ZodError } from "zod";
 import { logger } from "../utils/logger.js";
 import { JWTError } from "../services/jwt.service.js";
 import type { ErrorResponse } from "../types/index.js";
@@ -23,19 +22,10 @@ function classifyError(err: Error): ErrorMapping {
     };
   }
 
-  if (err instanceof ZodError) {
-    return {
-      status: 400,
-      code: "validation_error",
-      message: "Invalid request data",
-      logLevel: "warn",
-    };
-  }
-
   if (err instanceof HTTPException) {
     return {
       status: err.status as ContentfulStatusCode,
-      code: `http_${err.status}`,
+      code: `http_${err.status.toString()}`,
       message: err.message || "HTTP error",
       logLevel: err.status >= 500 ? "error" : "warn",
     };

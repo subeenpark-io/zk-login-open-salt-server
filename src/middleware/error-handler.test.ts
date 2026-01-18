@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
-import { ZodError, z } from "zod";
 
 vi.mock("../utils/logger.js", () => ({
   logger: {
@@ -62,23 +61,6 @@ describe("errorHandler", () => {
     expect(body).toEqual({
       error: "invalid_signature",
       message: "JWT signature verification failed",
-    });
-  });
-
-  it("should handle ZodError with 400 status", async () => {
-    app.get("/zod-error", (): never => {
-      const schema = z.object({ name: z.string() });
-      schema.parse({ name: 123 });
-      throw new Error("unreachable");
-    });
-
-    const res = await app.request("/zod-error");
-
-    expect(res.status).toBe(400);
-    const body = await res.json();
-    expect(body).toEqual({
-      error: "validation_error",
-      message: "Invalid request data",
     });
   });
 
