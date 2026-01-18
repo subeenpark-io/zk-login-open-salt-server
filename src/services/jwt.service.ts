@@ -2,37 +2,33 @@ import * as jose from "jose";
 import type { OAuthProviderConfig } from "../config/oauth-providers.js";
 import { getProviderByIssuer } from "../config/oauth-providers.js";
 import { logger } from "../utils/logger.js";
-
-export interface JWTPayload {
-  iss: string;
-  sub: string;
-  aud: string | string[];
-  exp: number;
-  iat: number;
-  nonce?: string;
-}
-
-export interface VerifiedJWT {
-  payload: JWTPayload;
-  provider: OAuthProviderConfig;
-}
+import type { VerifyResult, JWTClaims } from "../types/index.js";
 
 const jwksCache = new Map<string, jose.JWTVerifyGetKey>();
 
+export interface VerifiedJWT {
+  result: VerifyResult;
+  provider?: OAuthProviderConfig | undefined;
+}
+
 export async function verifyJWT(token: string): Promise<VerifiedJWT> {
-  // Decode without verification to get issuer
+  let claims: JWTClaims;
+
   const unverified = jose.decodeJwt(token);
 
   if (!unverified.iss) {
-    throw new JWTError("invalid_jwt", "JWT missing issuer claim");
+    return {
+      result: { valid: false, error: "JWT missing issuer claim" },
+    };
   }
 
   const provider = getProviderByIssuer(unverified.iss);
   if (!provider) {
-    throw new JWTError("unknown_provider", `Unknown OAuth provider: ${unverified.iss}`);
+    return {
+      result: { valid: false, error: `Unknown OAuth provider: ${unverified.iss}` },
+    };
   }
 
-  // Get or create JWKS client
   let jwks = jwksCache.get(provider.jwksUri);
   if (!jwks) {
     jwks = jose.createRemoteJWKSet(new URL(provider.jwksUri));
@@ -44,27 +40,48 @@ export async function verifyJWT(token: string): Promise<VerifiedJWT> {
       issuer: unverified.iss,
     });
 
+    claims = {
+      sub: payload.sub ?? "",
+      aud: payload.aud ?? "",
+      iss: payload.iss ?? "",
+      exp: payload.exp ?? 0,
+      iat: payload.iat ?? 0,
+      nonce: payload["nonce"] as string | undefined,
+    };
+
     logger.debug("JWT verified successfully", {
       provider: provider.name,
-      sub: maskString(payload.sub ?? ""),
+      sub: maskString(claims.sub),
     });
 
     return {
-      payload: payload as JWTPayload,
+      result: { valid: true, claims },
       provider,
     };
   } catch (error) {
     if (error instanceof jose.errors.JWTExpired) {
-      throw new JWTError("jwt_expired", "JWT has expired");
+      return {
+        result: { valid: false, error: "JWT has expired" },
+        provider,
+      };
     }
     if (error instanceof jose.errors.JWTClaimValidationFailed) {
-      throw new JWTError("invalid_claims", "JWT claim validation failed");
+      return {
+        result: { valid: false, error: "JWT claim validation failed" },
+        provider,
+      };
     }
     if (error instanceof jose.errors.JWSSignatureVerificationFailed) {
-      throw new JWTError("invalid_signature", "JWT signature verification failed");
+      return {
+        result: { valid: false, error: "JWT signature verification failed" },
+        provider,
+      };
     }
 
-    throw new JWTError("verification_failed", "JWT verification failed");
+    return {
+      result: { valid: false, error: "JWT verification failed" },
+      provider,
+    };
   }
 }
 
