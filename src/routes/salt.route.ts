@@ -4,6 +4,7 @@ import { createProvider } from "../providers/index.js";
 import type { SaltProvider } from "../types/index.js";
 import { config } from "../config/index.js";
 import { logger } from "../utils/logger.js";
+import type { SaltRequest, SaltResponse, ErrorResponse } from "../types/index.js";
 
 export const saltRoutes = new Hono();
 
@@ -14,19 +15,6 @@ async function getProvider(): Promise<SaltProvider> {
     provider = await createProvider(config.saltProvider);
   }
   return provider;
-}
-
-interface SaltRequest {
-  jwt: string;
-}
-
-interface SaltResponse {
-  salt: string;
-}
-
-interface ErrorResponse {
-  error: string;
-  message: string;
 }
 
 saltRoutes.post("/salt", async (c) => {
