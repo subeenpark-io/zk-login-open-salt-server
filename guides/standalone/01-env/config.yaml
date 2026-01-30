@@ -1,0 +1,18 @@
+server:
+  port: 3000
+  host: "0.0.0.0"
+
+logging:
+  level: debug
+  format: pretty
+
+security:
+  corsOrigins: "*"
+  rateLimitMax: 100
+  rateLimitWindowMs: 60000
+
+provider:
+  type: local
+  seed:
+    type: env
+    envVar: MASTER_SEED

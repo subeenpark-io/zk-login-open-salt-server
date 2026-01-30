@@ -1,0 +1,19 @@
+server:
+  port: 3000
+
+logging:
+  level: debug
+  format: pretty
+
+security:
+  corsOrigins: "*"
+  rateLimitMax: 100
+
+provider:
+  type: local
+  seed:
+    type: vault
+    address: "http://localhost:8200"
+    path: "secret/data/zklogin/seed"
+    key: masterSeed
+    tokenEnvVar: VAULT_TOKEN

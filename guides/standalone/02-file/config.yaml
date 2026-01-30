@@ -1,0 +1,17 @@
+server:
+  port: 3000
+
+logging:
+  level: debug
+  format: pretty
+
+security:
+  corsOrigins: "*"
+  rateLimitMax: 100
+
+provider:
+  type: local
+  seed:
+    type: file
+    path: examples/standalone/02-file/seed.json
+    key: masterSeed
