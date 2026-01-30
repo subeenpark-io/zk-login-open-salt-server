@@ -17,6 +17,10 @@ Mysten Labs의 Salt Server 아키텍처를 기반으로 하되, 다양한 환경
 
 ## 배포 모드
 
+이 프로젝트는 다양한 배포 시나리오를 지원합니다.
+
+### 모드 개요
+
 | 모드 | 설명 | 사용 케이스 |
 |------|------|------------|
 | **Standalone** | 자체 시드로 독립 운영 | 완전한 제어가 필요한 경우 |
@@ -24,7 +28,115 @@ Mysten Labs의 Salt Server 아키텍처를 기반으로 하되, 다양한 환경
 | **Hybrid** | Primary + Fallback | 고가용성(HA) 설정 |
 | **Router** | 멀티테넌트 라우팅 | 앱별 다른 provider 사용 |
 
+### 상세 설명
+
+#### 1. Standalone (자체 시드)
+
+**당신이 직접 Salt Server와 Master Seed를 소유하고 관리합니다.**
+
+```
+User → [당신의 Salt Server] → Salt 생성 (당신의 seed)
+```
+
+**특징:**
+- ✅ 완전한 제어권과 독립성
+- ✅ 외부 의존성 없음
+- ⚠️ Seed 관리 책임 (분실 시 모든 사용자 주소 변경)
+
+**시드 저장 방식 (보안 수준 순):**
+
+| 저장 방식 | 보안 수준 | 설명 |
+|----------|----------|------|
+| 환경변수 (`MASTER_SEED`) | ⭐ | 가장 간단, 테스트/개발용 |
+| 파일 (`seed.json`) | ⭐⭐ | 파일 시스템에 저장 |
+| **AWS Secrets Manager** | ⭐⭐⭐ | AWS 관리형 시크릿 저장소 |
+| HashiCorp Vault | ⭐⭐⭐ | Enterprise 시크릿 관리 |
+| **AWS Nitro Enclaves** | ⭐⭐⭐⭐⭐ | TEE 격리 환경 (최고 보안) |
+
+> **중요**: AWS Secrets Manager와 Nitro Enclaves는 **Standalone 모드의 일부**입니다. 둘 다 당신의 seed를 더 안전하게 저장하는 방법일 뿐, Mysten Labs와는 무관합니다.
+
+#### 2. Proxy (외부 서버 프록시)
+
+**Mysten Labs의 Salt Server를 백엔드로 사용합니다.**
+
+```
+User → [당신의 Proxy Server] → [Mysten Labs] → Salt 생성 (Mysten의 seed)
+```
+
+**특징:**
+- ✅ Seed 관리 책임 없음
+- ✅ 캐싱, Rate limiting 등 부가 기능 추가 가능
+- ⚠️ Mysten Labs 서비스에 의존
+
+**사용 예:**
+- Mysten Labs의 인프라를 신뢰하는 경우
+- 빠르게 시작하고 싶을 때
+- 자체 Seed 관리 부담을 피하고 싶을 때
+
+#### 3. Hybrid (Primary + Fallback)
+
+**자체 시드를 Primary로 사용하고, 장애 시 Mysten Labs로 Fallback.**
+
+```
+User → [당신의 Server]
+         ├─ Primary: 자체 시드 (정상)
+         └─ Fallback: Mysten Labs (장애 시)
+```
+
+**특징:**
+- ✅ 고가용성 (HA) 보장
+- ✅ Primary 장애 시 자동 전환
+- ⚠️ 두 시드가 다르면 사용자 주소가 달라짐
+
+#### 4. Router (멀티테넌트)
+
+**앱/고객별로 다른 Salt Provider 사용.**
+
+```
+Client (App A) → [Salt Router] → Provider A (자체 시드)
+Client (App B) → [Salt Router] → Provider B (Mysten Labs)
+Client (App C) → [Salt Router] → Provider C (커스텀 서버)
+```
+
+**특징:**
+- ✅ B2B SaaS에서 고객별 격리
+- ✅ JWT의 `aud` 필드로 자동 라우팅
+- ⚠️ 복잡한 설정 필요
+
+---
+
+### 통합 방식 (SDK)
+
+위 배포 모드와 별개로, **기존 서버에 Salt 기능만 추가**할 수 있습니다.
+
+```
+User → [당신의 기존 Express 서버]
+         ├─ /api/users (기존 API)
+         ├─ /api/posts (기존 API)
+         └─ /zklogin/salt (새로 추가된 Salt API)
+```
+
+**사용 케이스:**
+- 이미 운영 중인 백엔드가 있을 때
+- 독립 서버가 아닌 기능만 추가하고 싶을 때
+- Express, Fastify 등 기존 프레임워크에 통합
+
+SDK를 통해 어떤 배포 모드(Standalone, Proxy 등)든 선택해서 사용할 수 있습니다.
+
 ## 빠른 시작
+
+### 전제 조건
+
+```bash
+# 의존성 설치
+npm install
+
+# TypeScript 빌드 (프로덕션용)
+npm run build
+
+# 또는 개발 모드로 바로 실행 (빌드 불필요, Hot Reload 지원)
+npm run dev
+```
 
 ### 1. YAML 설정 파일 사용 (권장)
 
@@ -32,18 +144,25 @@ Mysten Labs의 Salt Server 아키텍처를 기반으로 하되, 다양한 환경
 # 설정 파일 복사
 cp config.example.yaml config.yaml
 
-# 설정 수정 후 실행
+# config.yaml 수정 (seed 설정 등)
+# 그리고 실행
 npm start
 ```
 
 ### 2. Standalone (자체 시드)
 
 ```bash
-# 시드 생성
+# 1. 시드 생성
 npm run generate-seed
 
-# 실행
-export MASTER_SEED="your-generated-seed"
+# 출력 예시:
+# ========================================
+# Generated Master Seed (32 bytes):
+# 0x7a8b9c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b
+# ========================================
+
+# 2. 생성된 시드로 실행
+export MASTER_SEED="0x7a8b9c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b"
 npm start
 ```
 
@@ -117,9 +236,43 @@ JWT를 검증하고 salt를 반환합니다.
 }
 ```
 
-### `GET /health/ready`
+**Error Response (400/401):**
+```json
+{
+  "error": "invalid_jwt",
+  "message": "JWT signature verification failed"
+}
+```
+
+### `GET /health`
+
+기본 헬스체크 엔드포인트입니다.
+
+**Response (200):**
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-01T00:00:00.000Z"
+}
+```
+
+### `GET /ready`
 
 서비스 준비 상태를 확인합니다 (Kubernetes readiness probe용).
+
+**Response (200):**
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-01T00:00:00.000Z",
+  "providers": {
+    "local": {
+      "healthy": true,
+      "message": "Provider is healthy"
+    }
+  }
+}
+```
 
 ## 배포 가이드
 
@@ -640,23 +793,58 @@ Nitro Enclaves 전체 구현이 포함되어 있습니다.
 
 YAML 설정 파일이 없는 경우 환경 변수로 설정할 수 있습니다:
 
+#### 공통 설정
+
 | 변수 | 필수 | 기본값 | 설명 |
 |------|------|--------|------|
 | `CONFIG_FILE` | No | - | YAML 설정 파일 경로 |
-| `MASTER_SEED` | * | - | Hex 인코딩된 마스터 시드 |
-| `SEED_SOURCE` | No | env | 시드 소스: env, aws, vault, file |
-| `AWS_SECRET_NAME` | * | - | AWS Secrets Manager 시크릿 이름 |
-| `AWS_REGION` | No | us-west-2 | AWS 리전 |
-| `VAULT_ADDR` | * | - | HashiCorp Vault 주소 |
-| `VAULT_PATH` | * | - | Vault 시크릿 경로 |
-| `VAULT_TOKEN` | * | - | Vault 인증 토큰 |
-| `SEED_FILE_PATH` | * | - | 시드 파일 경로 |
+| `SALT_PROVIDER_MODE` | No | local | Provider 모드: local, remote, hybrid, router |
 | `PORT` | No | 3000 | 서버 포트 |
 | `LOG_LEVEL` | No | info | 로그 레벨 |
 | `RATE_LIMIT_MAX` | No | 100 | 분당 최대 요청 수 |
 | `CORS_ORIGINS` | No | * | 허용된 CORS 오리진 |
 
-\* 시드 소스에 따라 해당 변수 필수
+#### Local Provider (SALT_PROVIDER_MODE=local)
+
+| 변수 | 필수 | 기본값 | 설명 |
+|------|------|--------|------|
+| `SEED_SOURCE` | No | env | 시드 소스: env, aws, vault, file, nitro |
+| `MASTER_SEED` | * | - | Hex 인코딩된 마스터 시드 (SEED_SOURCE=env) |
+| `AWS_SECRET_NAME` | * | - | AWS Secrets Manager 시크릿 이름 (SEED_SOURCE=aws) |
+| `AWS_REGION` | No | us-west-2 | AWS 리전 (SEED_SOURCE=aws) |
+| `VAULT_ADDR` | * | - | HashiCorp Vault 주소 (SEED_SOURCE=vault) |
+| `VAULT_PATH` | * | - | Vault 시크릿 경로 (SEED_SOURCE=vault) |
+| `VAULT_TOKEN` | * | - | Vault 인증 토큰 (SEED_SOURCE=vault) |
+| `SEED_FILE_PATH` | * | - | 시드 파일 경로 (SEED_SOURCE=file) |
+
+#### Remote Provider (SALT_PROVIDER_MODE=remote)
+
+| 변수 | 필수 | 기본값 | 설명 |
+|------|------|--------|------|
+| `REMOTE_SALT_ENDPOINT` | Yes | - | 원격 Salt Server URL |
+| `REMOTE_SALT_TIMEOUT` | No | 10000 | 요청 타임아웃 (ms) |
+| `REMOTE_SALT_API_KEY` | No | - | API 키 (필요시) |
+| `REMOTE_SALT_RETRY_COUNT` | No | 0 | 재시도 횟수 |
+
+#### Hybrid Provider (SALT_PROVIDER_MODE=hybrid)
+
+| 변수 | 필수 | 기본값 | 설명 |
+|------|------|--------|------|
+| `HYBRID_FALLBACK_ENABLED` | No | true | Fallback 활성화 여부 |
+| `HYBRID_FALLBACK_ENDPOINT` | No | Mysten Labs | Fallback 서버 URL |
+| `HYBRID_FALLBACK_AFTER_SECONDS` | No | 60 | Primary 재시도 대기 시간 (초) |
+| `HYBRID_FALLBACK_RETRY_COUNT` | No | 0 | Fallback 재시도 횟수 |
+
++ Local Provider 변수들 (Primary로 사용)
+
+#### Router Provider (SALT_PROVIDER_MODE=router)
+
+| 변수 | 필수 | 설명 |
+|------|------|------|
+| `ROUTER_CONFIG_JSON` | * | JSON 형식 라우터 설정 |
+| `ROUTER_CONFIG_PATH` | * | 라우터 설정 파일 경로 |
+
+\* 중 하나 필수
 
 ## 지원 OAuth 제공자
 
@@ -670,7 +858,7 @@ YAML 설정 파일이 없는 경우 환경 변수로 설정할 수 있습니다:
 | Slack | ✅ |
 | Microsoft | ✅ |
 
-새로운 제공자 추가는 `src/config/providers.ts`를 참조하세요.
+새로운 제공자 추가는 [src/config/oauth-providers.ts](src/config/oauth-providers.ts)를 참조하세요.
 
 ## 개발
 
