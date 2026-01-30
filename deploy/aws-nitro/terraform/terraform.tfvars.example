@@ -1,0 +1,49 @@
+# Example Terraform Variables for Nitro Enclaves Deployment
+# Copy this file to terraform.tfvars and customize
+
+# AWS Configuration
+aws_region  = "us-west-2"
+environment = "prod"
+
+# VPC Configuration (optional - uses defaults if not specified)
+# vpc_cidr             = "10.0.0.0/16"
+# public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+# private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
+
+# EC2 Configuration
+# Must be a Nitro-enabled instance type (c5, m5, r5, etc.)
+instance_type    = "c5.xlarge"
+root_volume_size = 30
+
+# SSH Key (optional - SSM is recommended instead)
+# key_name = "my-keypair"
+
+# Enclave Configuration
+enclave_cpu_count = 2
+enclave_memory_mb = 512
+
+# IMPORTANT: PCR values from enclave build
+# Run: cd enclave && ./build-eif.sh
+# Copy the PCR0 value from the output
+enclave_pcr0 = ""
+# enclave_pcr1 = ""  # Optional: for stricter policy
+# enclave_pcr2 = ""  # Optional: for stricter policy
+
+# Application Configuration
+app_port   = 3000
+vsock_port = 5000
+
+# Domain Configuration (optional)
+# Set these if you have a custom domain and ACM certificate
+# domain_name         = "salt.example.com"
+# acm_certificate_arn = "arn:aws:acm:us-west-2:<account-id>:certificate/<cert-id>"
+
+# Security
+# Restrict ALB access to specific CIDR blocks (use ["0.0.0.0/0"] for public access)
+allowed_cidr_blocks = ["0.0.0.0/0"]
+
+# SSH access (leave empty to disable direct SSH - use SSM instead)
+ssh_allowed_cidr_blocks = []
+
+# Logging
+log_retention_days = 30

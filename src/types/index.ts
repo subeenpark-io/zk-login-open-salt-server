@@ -98,7 +98,32 @@ export interface SeedSourceFile {
   key?: string | undefined;
 }
 
-export type SeedSource = SeedSourceEnv | SeedSourceAws | SeedSourceVault | SeedSourceFile;
+export interface SeedSourceNitro {
+  type: "nitro";
+  /**
+   * Enclave CID (Context Identifier).
+   * The parent instance uses CID 3, enclave uses a configured CID.
+   * Default: 16
+   */
+  enclaveCid?: number | undefined;
+  /**
+   * vsock port for communication with the enclave.
+   * Default: 5000
+   */
+  port?: number | undefined;
+  /**
+   * Request timeout in milliseconds.
+   * Default: 5000
+   */
+  timeout?: number | undefined;
+}
+
+export type SeedSource =
+  | SeedSourceEnv
+  | SeedSourceAws
+  | SeedSourceVault
+  | SeedSourceFile
+  | SeedSourceNitro;
 
 export interface LocalProviderConfig {
   type: "local";

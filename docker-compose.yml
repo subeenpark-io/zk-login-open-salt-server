@@ -1,0 +1,78 @@
+# Docker Compose configuration for local development and testing
+# Usage: docker-compose up -d
+
+services:
+  salt-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      # Server configuration
+      - PORT=3000
+      - LOG_LEVEL=info
+
+      # Salt provider configuration
+      - SALT_PROVIDER_MODE=local
+
+      # Master seed (for testing only - use secrets in production!)
+      # Generate with: npm run generate-seed
+      - MASTER_SEED=${MASTER_SEED:-}
+
+      # For AWS Secrets Manager (uncomment if using)
+      # - SEED_SOURCE=aws
+      # - AWS_SECRET_NAME=zklogin/master-seed
+      # - AWS_REGION=us-west-2
+      # - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      # - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+
+      # Security settings
+      - CORS_ORIGINS=*
+      - RATE_LIMIT_MAX=100
+
+    # Mount custom config (optional)
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# Example with Redis cache (optional)
+# Uncomment to enable caching layer
+#
+#   redis:
+#     image: redis:7-alpine
+#     ports:
+#       - "6379:6379"
+#     volumes:
+#       - redis-data:/data
+#     restart: unless-stopped
+#
+# volumes:
+#   redis-data:

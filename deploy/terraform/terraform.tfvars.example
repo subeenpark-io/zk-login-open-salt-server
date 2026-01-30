@@ -1,0 +1,42 @@
+# Example Terraform Variables
+# Copy this file to terraform.tfvars and customize
+
+# AWS Configuration
+aws_region  = "us-west-2"
+environment = "prod"
+
+# VPC Configuration (optional - uses defaults if not specified)
+# vpc_cidr             = "10.0.0.0/16"
+# public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
+# private_subnet_cidrs = ["10.0.10.0/24", "10.0.11.0/24"]
+
+# ECS Configuration
+ecs_task_cpu      = 256
+ecs_task_memory   = 512
+ecs_desired_count = 2
+ecs_min_count     = 1
+ecs_max_count     = 10
+
+# Container Configuration
+# REQUIRED: Set this to your ECR repository URL
+container_image = "<account-id>.dkr.ecr.us-west-2.amazonaws.com/zklogin-salt-server:latest"
+container_port  = 3000
+
+# Secrets Manager
+master_seed_secret_name = "zklogin/master-seed"
+
+# Domain Configuration (optional)
+# Set these if you have a custom domain and ACM certificate
+# domain_name         = "salt.example.com"
+# acm_certificate_arn = "arn:aws:acm:us-west-2:<account-id>:certificate/<cert-id>"
+
+# Security
+# Restrict access to specific CIDR blocks (use ["0.0.0.0/0"] for public access)
+allowed_cidr_blocks = ["0.0.0.0/0"]
+
+# Logging
+log_retention_days = 30
+
+# Application Configuration
+cors_origins   = "*"  # Use specific origins in production
+rate_limit_max = 100

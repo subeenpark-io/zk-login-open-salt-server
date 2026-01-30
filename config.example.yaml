@@ -53,6 +53,14 @@ provider:
     # path: "/run/secrets/master-seed"
     # key: "masterSeed"  # If file is JSON
 
+    # Method F: AWS Nitro Enclaves (최고 보안 - TEE 환경)
+    # Requires additional setup: enclave image (EIF), KMS attestation
+    # See: https://docs.aws.amazon.com/enclaves/latest/user/
+    # type: nitro
+    # enclaveCid: 16        # Enclave Context ID (default: 16)
+    # port: 5000            # vsock port (default: 5000)
+    # timeout: 5000         # Request timeout in ms (default: 5000)
+
 # ============================================
 # Option 2: Remote Provider (외부 서버 프록시)
 # ============================================

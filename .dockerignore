@@ -1,0 +1,66 @@
+# Dependencies
+node_modules/
+
+# Build output (will be created in Docker)
+dist/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment and secrets
+.env
+.env.*
+*.env
+config.yaml
+secrets/
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Tests
+*.test.ts
+*.spec.ts
+__tests__/
+coverage/
+.nyc_output/
+
+# Development files
+.eslintrc*
+.prettierrc*
+tsconfig*.json
+vitest.config.*
+jest.config.*
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.docker/
+
+# Deploy
+deploy/
+
+# Examples
+examples/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temp files
+tmp/
+temp/
+*.tmp

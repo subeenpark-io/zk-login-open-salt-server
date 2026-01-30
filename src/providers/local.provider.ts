@@ -6,44 +6,121 @@ import type {
   SeedSource,
   SeedSourceAws,
   SeedSourceFile,
+  SeedSourceNitro,
   SeedSourceVault,
 } from "../types/index.js";
 import { deriveSalt } from "../services/seed.service.js";
 import { bytesToHex, hexToBytes } from "../utils/crypto.js";
+import { VsockClient, createVsockClient } from "./nitro/index.js";
 
+/**
+ * LocalProvider implements SaltProvider interface for local salt generation.
+ *
+ * It supports two modes:
+ * 1. **Traditional mode**: Seed is loaded from env/aws/vault/file and salt is derived locally
+ * 2. **Nitro mode**: Salt derivation is delegated to a Nitro Enclave via vsock
+ *
+ * In Nitro mode, the master seed never leaves the enclave, providing
+ * hardware-level protection for the cryptographic secret.
+ */
 export class LocalProvider implements SaltProvider {
   readonly name = "local";
   readonly type = "local";
-  private seed: Uint8Array;
 
-  private constructor(seed: Uint8Array) {
-    this.seed = seed;
-  }
+  // Traditional mode: seed stored in memory
+  private seed: Uint8Array | null = null;
 
+  // Nitro mode: delegate to enclave
+  private vsockClient: VsockClient | null = null;
+  private isNitroMode = false;
+
+  private constructor() {}
+
+  /**
+   * Create a LocalProvider instance
+   *
+   * @param config - Provider configuration
+   * @returns Configured LocalProvider
+   */
   static async create(config: LocalProviderConfig): Promise<LocalProvider> {
-    const seed = await loadSeed(config.seed);
-    return new LocalProvider(seed);
+    const provider = new LocalProvider();
+
+    if (config.seed.type === "nitro") {
+      // Nitro mode: use vsock client to communicate with enclave
+      provider.isNitroMode = true;
+      provider.vsockClient = createVsockClient({
+        enclaveCid: config.seed.enclaveCid,
+        port: config.seed.port,
+        timeout: config.seed.timeout,
+      });
+
+      console.info("[local-provider] Using Nitro Enclaves mode for salt derivation");
+    } else {
+      // Traditional mode: load seed into memory
+      provider.seed = await loadSeed(config.seed);
+      console.info("[local-provider] Seed loaded successfully");
+    }
+
+    return provider;
   }
 
+  /**
+   * Generate salt for the given subject and audience
+   *
+   * @param sub - JWT subject (user identifier)
+   * @param aud - JWT audience (application identifier)
+   * @param _jwt - Original JWT (unused in local mode)
+   * @returns Hex-encoded salt value (with 0x prefix)
+   */
   async getSalt(sub: string, aud: string, _jwt?: string): Promise<string> {
+    if (this.isNitroMode && this.vsockClient) {
+      // Nitro mode: delegate to enclave
+      return this.vsockClient.deriveSalt(sub, aud);
+    }
+
+    // Traditional mode: derive locally
+    if (!this.seed) {
+      throw new Error("Seed not loaded");
+    }
+
     const salt = deriveSalt(this.seed, sub, aud);
     return bytesToHex(salt);
   }
 
+  /**
+   * Check provider health
+   */
   async healthCheck(): Promise<HealthCheckResult> {
-    if (this.seed.length !== 32) {
+    if (this.isNitroMode && this.vsockClient) {
+      // Check enclave health
+      return this.vsockClient.healthCheck();
+    }
+
+    // Traditional mode: verify seed is valid
+    if (!this.seed || this.seed.length !== 32) {
       return { healthy: false, message: "Seed must be 32 bytes" };
     }
 
     return { healthy: true };
   }
 
+  /**
+   * Clean up resources
+   */
   async destroy(): Promise<void> {
-    // Clear seed from memory
-    this.seed.fill(0);
+    if (this.seed) {
+      // Clear seed from memory
+      this.seed.fill(0);
+      this.seed = null;
+    }
+
+    this.vsockClient = null;
   }
 }
 
+/**
+ * Load seed from the configured source
+ */
 async function loadSeed(source: SeedSource): Promise<Uint8Array> {
   switch (source.type) {
     case "env":
@@ -54,6 +131,9 @@ async function loadSeed(source: SeedSource): Promise<Uint8Array> {
       return loadSeedFromVault(source);
     case "file":
       return loadSeedFromFile(source);
+    case "nitro":
+      // This should not be reached - nitro mode is handled in create()
+      throw new Error("Nitro seed source should be handled in create()");
     default:
       throw new Error(`Unknown seed source type: ${(source as { type: string }).type}`);
   }

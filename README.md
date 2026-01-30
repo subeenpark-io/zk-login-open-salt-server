@@ -76,9 +76,25 @@ import express from 'express';
 import { createSaltRouter } from 'zklogin-salt-server/sdk/integrations/express';
 
 const app = express();
-app.use('/zklogin', createSaltRouter({
+app.use(express.json());
+app.use('/zklogin', await createSaltRouter({
   provider: { type: 'mysten' }
 }));
+// POST /zklogin/salt 엔드포인트 사용 가능
+```
+
+### 6. Fastify 통합
+
+```typescript
+import Fastify from 'fastify';
+import { saltPlugin } from 'zklogin-salt-server/sdk/integrations/fastify';
+
+const fastify = Fastify();
+await fastify.register(saltPlugin, {
+  provider: { type: 'mysten' },
+  prefix: '/zklogin'  // optional
+});
+// POST /zklogin/salt 엔드포인트 사용 가능
 ```
 
 ## API
@@ -107,7 +123,7 @@ JWT를 검증하고 salt를 반환합니다.
 
 ## 배포 가이드
 
-### Docker
+### 로컬 개발 (Docker)
 
 ```bash
 # 이미지 빌드
@@ -127,30 +143,354 @@ export MASTER_SEED="your-seed"
 docker-compose up -d
 ```
 
-### Kubernetes
+---
 
-```bash
-# 시크릿 생성
-kubectl create secret generic zklogin-salt-server-config \
-  --from-literal=aws-secret-name=zklogin/production-seed \
-  --from-literal=aws-region=us-west-2
+## 프로덕션 배포 가이드
 
-# 배포
-kubectl apply -f deploy/kubernetes/
+프로덕션 환경에서는 두 가지 배포 방식을 지원합니다:
+
+| 방식 | 보안 수준 | 복잡도 | 추천 |
+|------|----------|--------|------|
+| **AWS Secrets Manager + ECS** | 높음 | 낮음 | 대부분의 경우 |
+| **AWS Nitro Enclaves** | 최고 | 높음 | 최고 수준 보안 필요 시 |
+
+---
+
+### 방법 1: AWS Secrets Manager + ECS Fargate
+
+#### 아키텍처
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      AWS Cloud                               │
+│                                                              │
+│  Client → ALB (HTTPS) → ECS Fargate → Secrets Manager       │
+│                              │                               │
+│                              └─→ 시드 로드 (시작 시 1회)     │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### AWS Secrets Manager 사용
+#### Step 1: 마스터 시드 생성
 
-1. AWS에 시드 저장:
 ```bash
-npm run generate-seed -- --aws --secret-name zklogin/production-seed
+npm run generate-seed
+
+# 출력 예시:
+# ========================================
+# Generated Master Seed (32 bytes):
+# 0x7a8b9c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b
+# ========================================
 ```
 
-2. 환경 변수 설정:
+> ⚠️ **중요**: 이 시드를 안전한 곳에 백업하세요. 분실 시 모든 사용자의 zkLogin 주소가 변경됩니다.
+
+#### Step 2: AWS Secrets Manager에 시드 저장
+
 ```bash
-export AWS_SECRET_NAME="zklogin/production-seed"
-export AWS_REGION="us-west-2"
+# AWS CLI로 시크릿 생성
+aws secretsmanager create-secret \
+  --name zklogin/master-seed \
+  --description "zkLogin Salt Server Master Seed" \
+  --secret-string '{"masterSeed": "0x<생성된-64자-hex-시드>"}' \
+  --region us-west-2
 ```
+
+#### Step 3: ECR에 Docker 이미지 푸시
+
+```bash
+# 변수 설정
+export AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+export AWS_REGION=us-west-2
+
+# ECR 로그인
+aws ecr get-login-password --region $AWS_REGION | \
+  docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+
+# ECR 리포지토리 생성
+aws ecr create-repository \
+  --repository-name zklogin-salt-server \
+  --region $AWS_REGION
+
+# 이미지 빌드 및 푸시
+docker build -t zklogin-salt-server .
+docker tag zklogin-salt-server:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/zklogin-salt-server:latest
+docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/zklogin-salt-server:latest
+```
+
+#### Step 4: Terraform으로 인프라 배포
+
+```bash
+cd deploy/terraform
+
+# 변수 파일 생성
+cat > terraform.tfvars << EOF
+aws_region  = "us-west-2"
+environment = "prod"
+
+# ECR 이미지 URL (Step 3에서 푸시한 이미지)
+container_image = "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/zklogin-salt-server:latest"
+
+# Secrets Manager 시크릿 이름 (Step 2에서 생성)
+master_seed_secret_name = "zklogin/master-seed"
+
+# 도메인 설정 (선택사항)
+# domain_name         = "salt.example.com"
+# acm_certificate_arn = "arn:aws:acm:us-west-2:..."
+
+# 보안 설정
+cors_origins   = "https://your-app.com"
+rate_limit_max = 100
+EOF
+
+# Terraform 실행
+terraform init
+terraform plan
+terraform apply
+```
+
+#### Step 5: 배포 확인
+
+```bash
+# ALB URL 확인
+export SALT_URL=$(terraform output -raw salt_server_url)
+echo "Salt Server URL: $SALT_URL"
+
+# 헬스체크
+curl $SALT_URL/health
+
+# Salt 요청 테스트 (유효한 JWT 필요)
+curl -X POST $SALT_URL/v1/salt \
+  -H "Content-Type: application/json" \
+  -d '{"jwt": "<유효한-Google/Facebook-JWT>"}'
+```
+
+#### 서버 설정 (자동 적용됨)
+
+Terraform 배포 시 다음 설정이 자동으로 적용됩니다:
+
+```yaml
+# ECS Task에서 사용되는 설정
+provider:
+  type: local
+  seed:
+    type: aws
+    secretName: "zklogin/master-seed"
+    region: "us-west-2"
+    secretKey: "masterSeed"
+```
+
+---
+
+### 방법 2: AWS Nitro Enclaves (최고 보안)
+
+Nitro Enclaves는 **완전히 구현**되어 있습니다. TEE(Trusted Execution Environment)를 사용하여 마스터 시드를 보호합니다.
+
+#### 아키텍처
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    EC2 (Nitro-enabled)                           │
+│                                                                  │
+│  ┌────────────────────────────────────────────────────────────┐ │
+│  │  Parent Instance                                            │ │
+│  │  ┌────────────────────────────┐                            │ │
+│  │  │  Salt Server (Node.js)     │                            │ │
+│  │  │  - API 요청 수신           │←── ALB ←── Client          │ │
+│  │  │  - JWT 검증                │                            │ │
+│  │  │  - vsock으로 salt 요청     │                            │ │
+│  │  └─────────────┬──────────────┘                            │ │
+│  │                │ vsock (CID: 16, Port: 5000)               │ │
+│  └────────────────┼───────────────────────────────────────────┘ │
+│                   │                                              │
+│  ┌────────────────▼───────────────────────────────────────────┐ │
+│  │  Nitro Enclave (격리된 TEE 환경)                            │ │
+│  │  ┌────────────────────────────┐                            │ │
+│  │  │  Enclave App               │                            │ │
+│  │  │  - KMS로 시드 복호화       │←── AWS KMS (attestation)   │ │
+│  │  │  - HKDF로 salt 계산        │                            │ │
+│  │  │  - salt만 반환 (시드 노출 X)│                            │ │
+│  │  └────────────────────────────┘                            │ │
+│  │  ⚡ 메모리 암호화, 네트워크 완전 격리                        │ │
+│  └────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+#### Secrets Manager vs Nitro Enclaves 비교
+
+| 특징 | Secrets Manager | Nitro Enclaves |
+|------|-----------------|----------------|
+| 시드 저장 위치 | AWS 관리 저장소 | Enclave 메모리 (암호화) |
+| 런타임 시드 노출 | 앱 메모리에 로드됨 | Enclave 외부 노출 불가 |
+| AWS 운영자 접근 | 이론적으로 가능 | **불가능** (TEE) |
+| 설정 복잡도 | 낮음 | 중간 |
+| 비용 | ECS Fargate 요금 | EC2 + Enclave 요금 |
+
+#### Step 1: Enclave 이미지(EIF) 빌드
+
+```bash
+cd enclave
+
+# 의존성 설치
+npm install
+
+# Docker 이미지 및 EIF 빌드
+./build-eif.sh
+
+# 출력 예시:
+# PCR0: e4d...abc (이 값을 Step 3에서 사용)
+```
+
+> **중요**: PCR0 값을 메모해두세요. KMS 정책에 사용됩니다.
+
+#### Step 2: 마스터 시드 생성 및 KMS로 암호화
+
+```bash
+# 시드 생성
+npm run generate-seed
+
+# KMS로 암호화 (Step 4에서 생성되는 KMS 키 사용)
+aws kms encrypt \
+  --key-id alias/zklogin-prod-enclave-seed \
+  --plaintext fileb://<(echo -n "0x<생성된-시드>") \
+  --output text --query CiphertextBlob > encrypted-seed.b64
+
+# 암호화된 시드를 환경변수로 사용할 예정
+export ENCRYPTED_SEED=$(cat encrypted-seed.b64)
+```
+
+#### Step 3: Terraform 변수 설정
+
+```bash
+cd deploy/aws-nitro/terraform
+cp terraform.tfvars.example terraform.tfvars
+
+# terraform.tfvars 수정
+cat > terraform.tfvars << EOF
+aws_region  = "us-west-2"
+environment = "prod"
+
+# EC2 설정 (Nitro 지원 인스턴스)
+instance_type = "c5.xlarge"
+
+# Enclave 리소스
+enclave_cpu_count = 2
+enclave_memory_mb = 512
+
+# PCR0 값 (Step 1에서 확인)
+enclave_pcr0 = "<your-pcr0-value>"
+
+# 도메인 설정 (선택사항)
+# domain_name         = "salt.example.com"
+# acm_certificate_arn = "arn:aws:acm:..."
+
+# 보안 설정
+allowed_cidr_blocks = ["0.0.0.0/0"]
+EOF
+```
+
+#### Step 4: Terraform으로 인프라 배포
+
+```bash
+terraform init
+terraform plan
+terraform apply
+```
+
+배포되는 리소스:
+- VPC, 서브넷, 보안 그룹
+- EC2 인스턴스 (Nitro Enclaves 활성화)
+- Application Load Balancer
+- **KMS 키 (attestation 정책 포함)**
+- IAM 역할 및 정책
+- CloudWatch 로그 그룹
+
+#### Step 5: EC2 인스턴스 설정
+
+```bash
+# SSM으로 인스턴스 접속
+aws ssm start-session --target <instance-id>
+
+# 애플리케이션 코드 업로드
+scp -r dist/ ec2-user@<instance>:/opt/zklogin/
+
+# Enclave 이미지 업로드
+scp enclave/zklogin-enclave.eif ec2-user@<instance>:/opt/zklogin/enclave/
+
+# 환경변수 설정 (암호화된 시드)
+sudo bash -c 'echo "ENCRYPTED_SEED=<base64-encrypted-seed>" >> /opt/zklogin/.env'
+```
+
+#### Step 6: Enclave 시작
+
+```bash
+# Enclave 시작
+/opt/zklogin/manage-enclave.sh start
+
+# 상태 확인
+/opt/zklogin/manage-enclave.sh status
+
+# Salt Server 시작
+sudo systemctl enable --now zklogin-salt
+```
+
+#### Step 7: 테스트
+
+```bash
+# ALB URL 확인
+export SALT_URL=$(terraform output -raw salt_server_url)
+
+# 헬스체크
+curl $SALT_URL/health
+
+# Salt 요청 테스트
+curl -X POST $SALT_URL/v1/salt \
+  -H "Content-Type: application/json" \
+  -d '{"jwt": "<유효한-JWT>"}'
+```
+
+#### 구현된 컴포넌트
+
+| 컴포넌트 | 파일 | 설명 |
+|---------|------|------|
+| vsock 클라이언트 | `src/providers/nitro/vsock-client.ts` | Parent → Enclave 통신 |
+| LocalProvider | `src/providers/local.provider.ts` | Nitro 모드 지원 |
+| Enclave vsock 서버 | `enclave/src/vsock-server.ts` | JSON-RPC 서버 |
+| KMS 클라이언트 | `enclave/src/kms-client.ts` | Attestation 복호화 |
+| Salt 서비스 | `enclave/src/salt-service.ts` | HKDF salt 계산 |
+| EIF 빌드 스크립트 | `enclave/build-eif.sh` | Enclave 이미지 생성 |
+| Terraform | `deploy/aws-nitro/terraform/` | 인프라 자동화 |
+
+#### Salt Server 설정
+
+```yaml
+# config.yaml
+provider:
+  type: local
+  seed:
+    type: nitro
+    enclaveCid: 16      # Enclave Context ID
+    port: 5000          # vsock 포트
+    timeout: 5000       # 타임아웃 (ms)
+```
+
+#### 보안 특징
+
+- **메모리 암호화**: 시드가 암호화된 메모리에만 존재
+- **KMS Attestation**: 특정 Enclave 이미지에서만 복호화 가능
+- **네트워크 격리**: Enclave는 vsock 외 네트워크 접근 불가
+- **AWS 운영자 접근 불가**: TEE 환경으로 완전 격리
+
+---
+
+### 배포 방식 선택 가이드
+
+| 상황 | 추천 방식 |
+|------|----------|
+| 일반적인 프로덕션 배포 | **Secrets Manager + ECS** |
+| 규제 준수 필요 (금융, 의료) | Nitro Enclaves |
+| AWS 운영자 접근 차단 필요 | Nitro Enclaves |
+| 빠른 배포 필요 | **Secrets Manager + ECS** |
+| 개발/테스트 환경 | Docker Compose |
 
 ## 보안 고려사항
 
@@ -273,6 +613,28 @@ provider:
     type: env
     value: "0x1234..."  # 프로덕션에서 사용 금지!
 ```
+
+#### 6. AWS Nitro Enclaves (최고 보안)
+
+TEE(Trusted Execution Environment)를 사용한 최고 수준의 보안:
+
+```yaml
+provider:
+  type: local
+  seed:
+    type: nitro
+    enclaveCid: 16      # Enclave Context ID
+    port: 5000          # vsock 포트
+    timeout: 5000       # 타임아웃 (ms)
+```
+
+Nitro Enclaves의 장점:
+- 메모리 암호화 (AWS 운영자도 접근 불가)
+- KMS attestation (신뢰할 수 있는 환경에서만 시드 복호화)
+- 네트워크 격리 (vsock만 허용)
+
+Nitro Enclaves 전체 구현이 포함되어 있습니다.
+자세한 배포 방법은 [프로덕션 배포 가이드 - 방법 2](#방법-2-aws-nitro-enclaves-최고-보안)를 참조하세요.
 
 ### 환경 변수
 
