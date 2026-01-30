@@ -45,14 +45,22 @@ if [ $attempt -gt $MAX_ATTEMPTS ]; then
 fi
 echo ""
 
-# 3. 시드 생성
+# 3. AWS credentials 설정 (LocalStack용 더미 값)
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+export AWS_DEFAULT_REGION=us-east-1
+
+echo -e "${GREEN}✅ AWS credentials 설정 완료${NC}"
+echo ""
+
+# 4. 시드 생성
 echo -e "${BLUE}🔑 Master Seed 생성 중...${NC}"
 cd "$PROJECT_ROOT"
 SEED=$(npm run generate-seed --silent 2>&1 | grep "^0x")
 echo "  Seed: ${SEED:0:20}...${SEED: -20}"
 echo ""
 
-# 4. Secrets Manager에 업로드
+# 5. Secrets Manager에 업로드
 echo -e "${BLUE}📤 Secrets Manager에 업로드 중...${NC}"
 aws --endpoint-url=http://localhost:4566 \
     --region=us-east-1 \
@@ -64,7 +72,7 @@ aws --endpoint-url=http://localhost:4566 \
 echo -e "${GREEN}✅ 시드가 Secrets Manager에 저장되었습니다${NC}"
 echo ""
 
-# 5. 검증
+# 6. 검증
 echo -e "${BLUE}🔍 시드 검증 중...${NC}"
 STORED_SEED=$(aws --endpoint-url=http://localhost:4566 \
     --region=us-east-1 \

@@ -58,6 +58,52 @@ terraform plan
 terraform apply
 ```
 
+Next Steps:
+-----------
+
+1. Build the enclave image:
+   cd enclave && ./build-eif.sh
+
+2. Note the PCR0 value from the build output
+
+3. Update terraform.tfvars with PCR0:
+   enclave_pcr0 = "<pcr0-value-from-build>"
+
+4. Apply the updated configuration:
+   terraform apply
+
+5. Connect to EC2 instance (via SSM):
+   aws ssm start-session --target i-0550035c460b5f191
+
+6. Upload files to EC2:
+   # Application code
+   scp -r dist/ ec2-user@<instance>:/opt/zklogin/
+
+   # Enclave image
+   scp enclave/zklogin-enclave.eif ec2-user@<instance>:/opt/zklogin/enclave/
+
+7. Encrypt master seed with KMS:
+   aws kms encrypt \
+     --key-id arn:aws:kms:ap-northeast-2:121218089941:key/5f996870-db72-47ec-9c54-ab7d1f3d06e1 \
+     --plaintext fileb://master-seed.bin \
+     --output text --query CiphertextBlob > encrypted-seed.b64
+
+8. Set encrypted seed in enclave environment:
+   export ENCRYPTED_SEED=$(cat encrypted-seed.b64)
+
+9. Start the enclave:
+   /opt/zklogin/run-enclave.sh
+
+10. Start the salt server:
+    sudo systemctl enable --now zklogin-salt
+
+11. Test the endpoint:
+    curl -X POST http://zklogin-prod-alb-1474010946.ap-northeast-2.elb.amazonaws.com/v1/salt \
+      -H "Content-Type: application/json" \
+      -d '{"jwt": "<your-jwt>"}'
+
+============================================
+
 ### 2. EC2 접속
 
 ```bash
@@ -67,6 +113,9 @@ EC2_IP=$(terraform output -raw ec2_public_ip)
 # SSH 접속
 ssh -i ~/.ssh/your-key.pem ec2-user@$EC2_IP
 ```
+
+
+
 
 ### 3. Enclave 시작
 

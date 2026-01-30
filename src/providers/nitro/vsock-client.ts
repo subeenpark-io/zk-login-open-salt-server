@@ -308,7 +308,7 @@ export class VsockClient {
     // Connect using vsock address format
     // On Nitro instances, the vsock subsystem handles routing to the enclave
     socket.connect({
-      // @ts-expect-error - Using undocumented vsock support
+      // @ts-ignore - Using undocumented vsock support
       family: AF_VSOCK,
       // The vsock address is specified as CID:port
       host: String(this.cid),

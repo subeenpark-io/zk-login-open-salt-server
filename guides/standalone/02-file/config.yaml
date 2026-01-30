@@ -13,5 +13,5 @@ provider:
   type: local
   seed:
     type: file
-    path: examples/standalone/02-file/seed.json
+    path: guides/standalone/02-file/seed.json
     key: masterSeed

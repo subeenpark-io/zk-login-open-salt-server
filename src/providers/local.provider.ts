@@ -48,11 +48,14 @@ export class LocalProvider implements SaltProvider {
     if (config.seed.type === "nitro") {
       // Nitro mode: use vsock client to communicate with enclave
       provider.isNitroMode = true;
-      provider.vsockClient = createVsockClient({
-        enclaveCid: config.seed.enclaveCid,
-        port: config.seed.port,
-        timeout: config.seed.timeout,
-      });
+
+      // Build options object with only defined values (for exactOptionalPropertyTypes)
+      const vsockOptions: Partial<import("./nitro/vsock-client.js").VsockClientOptions> = {};
+      if (config.seed.enclaveCid !== undefined) vsockOptions.enclaveCid = config.seed.enclaveCid;
+      if (config.seed.port !== undefined) vsockOptions.port = config.seed.port;
+      if (config.seed.timeout !== undefined) vsockOptions.timeout = config.seed.timeout;
+
+      provider.vsockClient = createVsockClient(vsockOptions);
 
       console.info("[local-provider] Using Nitro Enclaves mode for salt derivation");
     } else {

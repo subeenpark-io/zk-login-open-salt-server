@@ -10,7 +10,7 @@ build/
 .env
 .env.local
 .env.*.local
-
+terraform.tfvars
 # Secrets (절대 커밋하지 말 것)
 *.pem
 *.key

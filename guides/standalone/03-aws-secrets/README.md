@@ -25,14 +25,31 @@ aws --version  # AWS CLI 2.x 권장
 
 ### Option 1: LocalStack (로컬 테스트)
 
+#### 기본 테스트 (Salt API 제외)
 ```bash
 cd guides/standalone/03-aws-secrets
 chmod +x test.sh setup-localstack.sh
 ./test.sh
 ```
 
+#### Salt API까지 테스트하기
+```bash
+# 1. .env 파일 생성
+cp .env.example .env
+
+# 2. Google OAuth Playground에서 JWT 발급 (id_token 복사)
+#    https://developers.google.com/oauthplayground/
+
+# 3. .env 파일에 JWT 추가
+echo 'TEST_JWT=여기에-복사한-id_token-붙여넣기' >> .env
+
+# 4. 테스트 실행
+./test.sh
+```
+
 ### Option 2: 실제 AWS (프로덕션/테스트)
 
+#### 기본 테스트 (Salt API 제외)
 ```bash
 cd guides/standalone/03-aws-secrets
 chmod +x test-aws.sh setup-aws.sh
@@ -44,6 +61,14 @@ aws configure
 ./setup-aws.sh
 
 # 테스트 실행
+./test-aws.sh
+```
+
+#### Salt API까지 테스트하기
+```bash
+# .env 파일에 TEST_JWT 추가 후 실행
+cp .env.example .env
+echo 'TEST_JWT=여기에-JWT-붙여넣기' >> .env
 ./test-aws.sh
 ```
 

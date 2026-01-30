@@ -14,6 +14,16 @@ echo "  03-aws-secrets: 실제 AWS 테스트"
 echo "======================================"
 echo ""
 
+# .env 로드 (TEST_JWT 등)
+if [ -f "$SCRIPT_DIR/.env" ]; then
+    export $(grep -v '^#' "$SCRIPT_DIR/.env" | xargs)
+    echo -e "${GREEN}✅ .env 파일 로드 완료${NC}"
+elif [ -f "$SCRIPT_DIR/.env.example" ]; then
+    echo -e "${YELLOW}ℹ️  .env 파일이 없습니다. .env.example을 복사하세요:${NC}"
+    echo -e "${YELLOW}   cp .env.example .env${NC}"
+fi
+echo ""
+
 # config-aws.yaml 확인
 if [ ! -f "$SCRIPT_DIR/config-aws.yaml" ]; then
     echo -e "${RED}❌ config-aws.yaml 파일이 없습니다${NC}"

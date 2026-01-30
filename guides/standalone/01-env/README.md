@@ -64,6 +64,29 @@ $ ./test.sh
    Salt API 테스트를 건너뜁니다
 
 💡 Salt API를 테스트하려면:
+    왼쪽 API 목록에서 "Google OAuth2 API v2"를 찾아서 클릭
+    다음 스코프들을 체크:
+    ✅ https://www.googleapis.com/auth/userinfo.email
+    ✅ https://www.googleapis.com/auth/userinfo.profile
+    ✅ openid
+    또는 더 간단하게:
+
+    왼쪽 검색창에 "openid"를 입력하면 관련 스코프들이 나옵니다
+    Step 2: Authorize APIs
+    오른쪽 상단의 "Authorize APIs" 버튼 클릭
+    Google 계정 선택 및 로그인
+    권한 승인
+    Step 3: Exchange authorization code for tokens
+    Authorization code를 받으면 자동으로 "Step 2"로 이동합니다
+    "Exchange authorization code for tokens" 버튼 클릭
+    Step 4: JWT 토큰 복사
+    Response에서 id_token 값을 찾습니다 (매우 긴 문자열)
+    id_token 값 전체를 복사합니다 (eyJ로 시작)
+    Step 5: 테스트 실행
+
+    export TEST_JWT="여기에-복사한-id_token-붙여넣기"
+    ./test.sh
+
    1. Google OAuth Playground에서 JWT 발급
       https://developers.google.com/oauthplayground/
    2. export TEST_JWT="your-jwt-here"

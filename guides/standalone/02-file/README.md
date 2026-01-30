@@ -11,6 +11,8 @@
 
 ## 사용법
 
+### 기본 테스트 (Salt API 제외)
+
 ```bash
 cd guides/standalone/02-file
 chmod +x test.sh
@@ -18,6 +20,27 @@ chmod +x test.sh
 ```
 
 테스트 스크립트가 자동으로 `seed.json` 파일을 생성하고 테스트를 실행합니다.
+
+### Salt API까지 테스트하기
+
+```bash
+# 1. .env 파일 생성
+cp .env.example .env
+
+# 2. Google OAuth Playground에서 JWT 발급
+#    https://developers.google.com/oauthplayground/
+#    - "Google OAuth2 API v2" 선택
+#    - openid, email, profile 스코프 선택
+#    - "Authorize APIs" 클릭
+#    - "Exchange code for tokens" 클릭
+#    - id_token 값 복사
+
+# 3. .env 파일에 JWT 추가
+echo 'TEST_JWT=여기에-복사한-id_token-붙여넣기' >> .env
+
+# 4. 테스트 실행
+./test.sh
+```
 
 ## 동작 방식
 
