@@ -125,6 +125,9 @@ SDK를 통해 어떤 배포 모드(Standalone, Proxy 등)든 선택해서 사용
 
 ## 빠른 시작
 
+> **📚 완전한 가이드**: 각 배포 모드의 상세 사용법은 [guides/](guides/) 디렉토리를 참조하세요.
+> **🔗 앱 통합 가이드**: 실제 앱에 통합하는 방법은 [sdk/integration-guide/](sdk/integration-guide/)를 참조하세요.
+
 ### 전제 조건
 
 ```bash
@@ -176,16 +179,33 @@ npm start
 
 ### 4. 기존 서버에 통합 (SDK)
 
+> **완전한 통합 가이드**: [sdk/integration-guide/](sdk/integration-guide/)에서 전체 플로우 및 예제를 확인하세요.
+
+#### Provider 타입 비교
+
+| 타입 | 사용 시기 | Salt Server 위치 |
+|------|----------|-----------------|
+| `mysten` | 빠른 시작, 개발 환경 | Mysten Labs 서버 |
+| `local` | 소규모 앱 (비추천) | 앱 내부 (보안 위험!) |
+| `custom` | **프로덕션 권장** | 자체 구축 Salt Server |
+
+#### 직접 사용
+
 ```typescript
 import { SaltClient } from 'zklogin-salt-server/sdk/core';
 
-// Mysten Labs 사용
+// Option 1: Mysten Labs 사용
 const client = SaltClient.mysten();
 const { salt } = await client.getSalt(jwt);
 
-// 자체 시드 사용
+// Option 2: 자체 시드 사용 (비추천 - 보안상 위험)
 const localClient = SaltClient.local({ seed: 'your-hex-seed' });
 const { salt } = await localClient.getSalt(jwt);
+
+// Option 3: 자체 Salt Server 사용 (프로덕션 권장)
+// 먼저 guides/standalone/03-aws-secrets로 Salt Server 구축 후:
+const customClient = SaltClient.custom('https://my-salt-server.com/v1/salt');
+const { salt } = await customClient.getSalt(jwt);
 ```
 
 ### 5. Express 통합
@@ -196,11 +216,23 @@ import { createSaltRouter } from 'zklogin-salt-server/sdk/integrations/express';
 
 const app = express();
 app.use(express.json());
+
+// Option 1: Mysten Labs 사용 (빠른 시작)
 app.use('/zklogin', await createSaltRouter({
   provider: { type: 'mysten' }
 }));
+
+// Option 2: 자체 Salt Server 사용 (프로덕션)
+app.use('/zklogin', await createSaltRouter({
+  provider: {
+    type: 'custom',
+    endpoint: 'https://my-salt-server.com/v1/salt'
+  }
+}));
 // POST /zklogin/salt 엔드포인트 사용 가능
 ```
+
+**완전한 예제**: [sdk/integration-guide/example-express-react/](sdk/integration-guide/example-express-react/)
 
 ### 6. Fastify 통합
 
@@ -210,11 +242,65 @@ import { saltPlugin } from 'zklogin-salt-server/sdk/integrations/fastify';
 
 const fastify = Fastify();
 await fastify.register(saltPlugin, {
-  provider: { type: 'mysten' },
+  provider: { type: 'mysten' },  // 또는 'custom'
   prefix: '/zklogin'  // optional
 });
 // POST /zklogin/salt 엔드포인트 사용 가능
 ```
+
+## 가이드 및 예제
+
+### 📚 배포 모드별 가이드
+
+각 배포 모드의 상세한 사용법과 테스트 케이스를 제공합니다.
+
+#### [guides/](guides/) - 전체 가이드 디렉토리
+
+| 가이드 | 설명 | 링크 |
+|--------|------|------|
+| **Standalone** | 자체 seed로 독립 운영 (5가지 저장 방식) | [guides/standalone/](guides/standalone/) |
+| **Proxy** | Mysten Labs 프록시 (캐싱, Rate limiting) | [guides/proxy/](guides/proxy/) |
+| **Hybrid** | Primary + Fallback (고가용성) | [guides/hybrid/](guides/hybrid/) |
+| **Router** | 멀티테넌트 라우팅 (앱별 분리) | [guides/router/](guides/router/) |
+
+**Standalone 하위 가이드**:
+- [01-env](guides/standalone/01-env/) - 환경변수로 seed 관리 (개발용)
+- [02-file](guides/standalone/02-file/) - 파일로 seed 관리
+- [03-aws-secrets](guides/standalone/03-aws-secrets/) - AWS Secrets Manager (프로덕션 권장)
+- [04-vault](guides/standalone/04-vault/) - HashiCorp Vault
+- [05-nitro](guides/standalone/05-nitro/) - AWS Nitro Enclaves (최고 보안)
+
+### 🔗 앱 통합 가이드
+
+실제 앱에서 zkLogin과 Salt Server를 통합하는 방법을 설명합니다.
+
+#### [sdk/integration-guide/](sdk/integration-guide/)
+
+**포함 내용**:
+- ✅ 완전한 zkLogin 플로우 (OAuth → Salt → 주소 → ZK Proof → 트랜잭션)
+- ✅ SDK Provider 타입 이해하기 (mysten, local, custom 차이)
+- ✅ 백엔드 통합 (Express, Fastify, Hono)
+- ✅ 프론트엔드 통합 (React, Vue 예제)
+- ✅ 프로덕션 체크리스트
+
+**빠른 시작**:
+- [⚡ QUICKSTART.md](sdk/integration-guide/QUICKSTART.md) - 5분 안에 시작하기
+- [📊 SUMMARY.md](sdk/integration-guide/SUMMARY.md) - 전체 구조 요약
+
+**완전한 예제**:
+- [Express + React 예제](sdk/integration-guide/example-express-react/) - 실행 가능한 완전한 앱
+
+### 🎯 시나리오별 추천
+
+| 상황 | 추천 가이드 |
+|------|------------|
+| **로컬 개발/테스트** | [guides/standalone/01-env](guides/standalone/01-env/) |
+| **프로덕션 배포** | [guides/standalone/03-aws-secrets](guides/standalone/03-aws-secrets/) |
+| **고가용성 필요** | [guides/hybrid](guides/hybrid/) |
+| **멀티테넌트 SaaS** | [guides/router](guides/router/) |
+| **앱에 통합** | [sdk/integration-guide](sdk/integration-guide/) |
+
+---
 
 ## API
 
@@ -882,6 +968,13 @@ Apache-2.0
 
 ## 참고 자료
 
+### 외부 문서
 - [Sui zkLogin 문서](https://docs.sui.io/concepts/cryptography/zklogin)
 - [Mysten Labs Salt Server 아키텍처](https://blog.sui.io/zklogin-salt-server-architecture/)
 - [AWS Nitro Enclaves](https://aws.amazon.com/ec2/nitro/nitro-enclaves/)
+
+### 프로젝트 가이드
+- [📚 전체 가이드](guides/) - Standalone, Proxy, Hybrid, Router 모드
+- [🔗 앱 통합 가이드](sdk/integration-guide/) - Express, React 통합 방법
+- [⚡ 5분 빠른 시작](sdk/integration-guide/QUICKSTART.md)
+- [💼 완전한 예제](sdk/integration-guide/example-express-react/)

@@ -1,0 +1,67 @@
+server:
+  port: 3000
+  host: 0.0.0.0
+
+logging:
+  level: debug
+  format: pretty
+
+security:
+  corsOrigins: "*"
+  rateLimitMax: 100
+  rateLimitWindowMs: 60000
+
+provider:
+  type: router
+
+  # Default provider (매칭되지 않는 모든 요청)
+  defaultProvider: "mysten"
+
+  # Provider 정의
+  providers:
+    # App A: 자체 seed
+    app-a:
+      type: local
+      seed:
+        type: env
+        envVar: SEED_APP_A
+
+    # App B: 자체 seed
+    app-b:
+      type: local
+      seed:
+        type: env
+        envVar: SEED_APP_B
+
+    # Internal apps: 내부용 seed
+    internal:
+      type: local
+      seed:
+        type: env
+        envVar: INTERNAL_SEED
+
+    # Default: Mysten Labs
+    mysten:
+      type: remote
+      endpoint: "https://salt.api.mystenlabs.com/get_salt"
+      timeout: 10000
+
+  # 라우팅 규칙 (순서대로 매칭)
+  routes:
+    # App A (정확한 매칭)
+    - name: "app-a-route"
+      match:
+        audience: "app-a.example.com"
+      provider: "app-a"
+
+    # App B (정확한 매칭)
+    - name: "app-b-route"
+      match:
+        audience: "app-b.example.com"
+      provider: "app-b"
+
+    # Internal apps (와일드카드)
+    - name: "internal-route"
+      match:
+        audience: "*.internal.example.com"
+      provider: "internal"
