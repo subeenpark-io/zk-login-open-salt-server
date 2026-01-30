@@ -5,36 +5,20 @@
  */
 
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { genAddressSeed, computeZkLoginAddress } from '@mysten/sui/zklogin';
-import { toBigEndianBytes } from '@mysten/sui/utils';
-import { poseidonHash } from '@mysten/sui/utils';
+import { genAddressSeed, computeZkLoginAddress, generateNonce, generateRandomness as genRandomness } from '@mysten/sui/zklogin';
 
 /**
  * Generate randomness for JWT (jwt_randomness)
+ * Uses SDK's built-in function
  *
  * @returns 128-bit random BigInt
  */
 export function generateRandomness(): bigint {
-  const randomBytes = new Uint8Array(16); // 128 bits
-  crypto.getRandomValues(randomBytes);
-
-  let randomness = 0n;
-  for (let i = 0; i < 16; i++) {
-    randomness = (randomness << 8n) | BigInt(randomBytes[i]);
-  }
-
-  return randomness;
+  return genRandomness();
 }
 
 /**
- * Compute nonce
- *
- * nonce = Base64URL(Poseidon([
- *   extended_eph_pk_bigint / 2^128,
- *   extended_eph_pk_bigint % 2^128,
- *   max_epoch,
- *   jwt_randomness
- * ]))
+ * Compute nonce using SDK's built-in function
  *
  * @param ephemeralPublicKey - Ephemeral public key
  * @param maxEpoch - Maximum epoch
@@ -46,40 +30,7 @@ export function computeNonce(
   maxEpoch: number,
   randomness: bigint
 ): string {
-  // Convert public key to BigInt
-  let pkBigInt = 0n;
-  for (let i = 0; i < ephemeralPublicKey.length; i++) {
-    pkBigInt = (pkBigInt << 8n) | BigInt(ephemeralPublicKey[i]);
-  }
-
-  // Compute Poseidon hash
-  const hash = poseidonHash([
-    pkBigInt / (2n ** 128n),      // Upper 128 bits
-    pkBigInt % (2n ** 128n),      // Lower 128 bits
-    BigInt(maxEpoch),
-    randomness
-  ]);
-
-  // Base64URL encode
-  return toBase64URL(toBigEndianBytes(hash, 32));
-}
-
-/**
- * Base64URL encode
- *
- * @param data - Byte array
- * @returns Base64URL string
- */
-function toBase64URL(data: Uint8Array): string {
-  let binary = '';
-  for (let i = 0; i < data.length; i++) {
-    binary += String.fromCharCode(data[i]);
-  }
-
-  return btoa(binary)
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
+  return generateNonce(ephemeralPublicKey, maxEpoch, randomness);
 }
 
 /**
