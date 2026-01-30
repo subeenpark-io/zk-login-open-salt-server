@@ -1,0 +1,18 @@
+server:
+  port: 3000
+
+logging:
+  level: debug
+  format: pretty
+
+security:
+  corsOrigins: "*"
+  rateLimitMax: 100
+
+provider:
+  type: local
+  seed:
+    type: aws
+    secretName: zklogin/test-seed
+    region: us-east-1
+    secretKey: masterSeed

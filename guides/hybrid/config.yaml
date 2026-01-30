@@ -1,0 +1,33 @@
+server:
+  port: 3000
+  host: 0.0.0.0
+
+logging:
+  level: debug
+  format: pretty
+
+security:
+  corsOrigins: "*"
+  rateLimitMax: 100
+  rateLimitWindowMs: 60000
+
+provider:
+  type: hybrid
+
+  # Primary: 자체 seed (Local Provider)
+  primary:
+    type: local
+    seed:
+      type: env
+      envVar: MASTER_SEED
+
+  # Fallback: Mysten Labs (Remote Provider)
+  fallback:
+    type: remote
+    endpoint: "https://salt.api.mystenlabs.com/get_salt"
+    timeout: 10000
+    retryCount: 2
+
+  # Fallback 설정
+  fallbackEnabled: true
+  fallbackAfterSeconds: 60

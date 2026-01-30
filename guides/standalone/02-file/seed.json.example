@@ -1,0 +1,6 @@
+{
+  "masterSeed": "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+  "createdAt": "2024-01-01T00:00:00Z",
+  "description": "Test seed for local development",
+  "version": "1.0"
+}
