@@ -20,7 +20,7 @@ export function LandingPage() {
   }, [isAuthenticated, zkAddress, navigate]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-sui-dark to-gray-900 text-white">
+    <div className="min-h-screen min-h-[100dvh] flex flex-col items-center justify-center bg-gradient-to-br from-sui-dark to-gray-900 text-white safe-area-inset">
       <div className="max-w-2xl mx-auto text-center px-4 sm:px-6">
         <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">zkLogin Wallet</h1>
         <p className="text-lg sm:text-xl text-gray-300 mb-8">
