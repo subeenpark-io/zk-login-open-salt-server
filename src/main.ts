@@ -1,5 +1,6 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
+import { cors } from "hono/cors";
 import { routes } from "./routes/index.js";
 import { errorHandler } from "./middleware/error-handler.js";
 import { config } from "./config/index.js";
@@ -8,6 +9,11 @@ import { logger } from "./utils/logger.js";
 const app = new Hono();
 
 // Middleware
+app.use("*", cors({
+  origin: "*", // Allow all origins (for development)
+  allowMethods: ["GET", "POST", "OPTIONS"],
+  allowHeaders: ["Content-Type", "Authorization"],
+}));
 app.onError(errorHandler);
 
 // Routes
