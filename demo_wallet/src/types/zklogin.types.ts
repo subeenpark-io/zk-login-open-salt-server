@@ -11,12 +11,21 @@ export interface ZkProofParams {
 }
 
 export interface ZkProof {
-  // ZK proof structure from Mysten Prover
-  [key: string]: any;
+  proofPoints: {
+    a: string[];
+    b: string[][];
+    c: string[];
+  };
+  issBase64Details: {
+    value: string;
+    indexMod4: number;
+  };
+  headerBase64: string;
 }
 
 export interface EphemeralKeyData {
   privateKey: string;
+  extendedEphemeralPublicKey: string;
   maxEpoch: number;
   randomness: string;
 }

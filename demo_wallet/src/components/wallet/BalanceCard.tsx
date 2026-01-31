@@ -9,9 +9,10 @@ import { WalletService } from '../../services/wallet.service';
 
 interface BalanceCardProps {
   address: string;
+  refreshTrigger?: number;
 }
 
-export function BalanceCard({ address }: BalanceCardProps) {
+export function BalanceCard({ address, refreshTrigger }: BalanceCardProps) {
   const [balance, setBalance] = useState<string>('0');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +36,7 @@ export function BalanceCard({ address }: BalanceCardProps) {
     if (address) {
       fetchBalance();
     }
-  }, [address]);
+  }, [address, refreshTrigger]);
 
   return (
     <Card>

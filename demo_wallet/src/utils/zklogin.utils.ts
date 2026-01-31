@@ -5,54 +5,72 @@
  */
 
 import { Ed25519Keypair } from '@mysten/sui/keypairs/ed25519';
-import { genAddressSeed, computeZkLoginAddress, generateNonce, generateRandomness as genRandomness } from '@mysten/sui/zklogin';
+import type { PublicKey } from '@mysten/sui/cryptography';
+import { SuiClient } from '@mysten/sui/client';
+import { computeZkLoginAddress, generateNonce, generateRandomness as genRandomness } from '@mysten/sui/zklogin';
 
 /**
  * Generate randomness for JWT (jwt_randomness)
  * Uses SDK's built-in function
  *
- * @returns 128-bit random BigInt
+ * @returns 128-bit random string
  */
-export function generateRandomness(): bigint {
+export function generateRandomness(): string {
   return genRandomness();
 }
 
 /**
  * Compute nonce using SDK's built-in function
  *
- * @param ephemeralPublicKey - Ephemeral public key
+ * @param ephemeralPublicKey - Ephemeral public key (PublicKey object)
  * @param maxEpoch - Maximum epoch
  * @param randomness - JWT randomness
  * @returns Base64URL encoded nonce
  */
 export function computeNonce(
-  ephemeralPublicKey: Uint8Array,
+  ephemeralPublicKey: PublicKey,
   maxEpoch: number,
-  randomness: bigint
+  randomness: string | bigint
 ): string {
   return generateNonce(ephemeralPublicKey, maxEpoch, randomness);
 }
 
 /**
+ * Get current epoch from Sui network
+ *
+ * @returns Current epoch number
+ */
+export async function getCurrentEpoch(): Promise<number> {
+  const rpcUrl = import.meta.env.VITE_SUI_RPC_URL || 'https://fullnode.devnet.sui.io';
+  const client = new SuiClient({ url: rpcUrl });
+  const { epoch } = await client.getLatestSuiSystemState();
+  return Number(epoch);
+}
+
+/**
  * Generate ephemeral key pair
  *
- * @param maxEpoch - Maximum epoch (optional, default: current + 10)
+ * @param epochOffset - Number of epochs to add to current epoch (default: 10)
  * @returns Ephemeral key information
  */
-export async function generateEphemeralKeyPair(maxEpoch?: number) {
+export async function generateEphemeralKeyPair(epochOffset: number = 10) {
   const keypair = new Ed25519Keypair();
   const randomness = generateRandomness();
-  const epoch = maxEpoch ?? 10; // TODO: Fetch current epoch from Sui network
+
+  // Fetch current epoch from Sui network and add offset
+  const currentEpoch = await getCurrentEpoch();
+  const maxEpoch = currentEpoch + epochOffset;
 
   const publicKey = keypair.getPublicKey();
-  const publicKeyBytes = publicKey.toBytes();
+  const publicKeyBytes = publicKey.toRawBytes();
 
-  const nonce = computeNonce(publicKeyBytes, epoch, randomness);
+  // SDK's generateNonce expects PublicKey object, not Uint8Array
+  const nonce = generateNonce(publicKey, maxEpoch, randomness);
 
   return {
     keypair,
     ephemeralPublicKey: publicKeyBytes,
-    maxEpoch: epoch,
+    maxEpoch,
     randomness,
     nonce
   };
@@ -79,7 +97,8 @@ export function createOAuthURL(
     response_type: 'id_token',
     scope: 'openid email',
     nonce: nonce,
-    state: generateState() // CSRF protection
+    state: generateState(), // CSRF protection
+    prompt: 'select_account' // Force account selection to avoid caching issues
   });
 
   const baseUrls = {
@@ -241,15 +260,11 @@ export async function computeAddress(jwt: string, salt: string): Promise<string>
   const claims = parseJWT(jwt);
   const { sub, aud, iss } = claims;
 
-  const addressSeed = genAddressSeed(
-    BigInt(salt),
-    'sub', // key claim name
-    sub,   // key claim value
-    aud    // audience
-  );
-
   return computeZkLoginAddress({
-    addressSeed: addressSeed.toString(),
-    iss
+    claimName: 'sub',
+    claimValue: sub,
+    userSalt: salt,
+    iss,
+    aud
   });
 }

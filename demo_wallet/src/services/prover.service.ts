@@ -1,22 +1,16 @@
 /**
  * Prover Service - handles ZK Proof generation via Mysten Labs Prover
+ * Uses proxy to hide actual Prover endpoint from browser
  */
 
 import type { ZkProof, ZkProofParams } from '../types/zklogin.types';
 
 export class ProverService {
-  private readonly endpoint: string;
-
-  constructor() {
-    this.endpoint = import.meta.env.VITE_PROVER_URL;
-
-    if (!this.endpoint) {
-      throw new Error('VITE_PROVER_URL is not defined in environment variables');
-    }
-  }
+  // Use proxy path (configured in vite.config.ts)
+  private readonly endpoint = '/api/prover';
 
   /**
-   * Generate ZK Proof from Mysten Prover
+   * Generate ZK Proof from Mysten Prover via proxy
    *
    * @param params - ZK proof parameters
    * @returns ZK Proof

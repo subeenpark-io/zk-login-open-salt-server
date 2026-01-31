@@ -13,7 +13,7 @@ import { StorageService } from '../services/storage.service';
 
 export const useWalletStore = create<WalletState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       // Initial state
       isAuthenticated: false,
       jwt: null,
@@ -33,7 +33,6 @@ export const useWalletStore = create<WalletState>()(
           set({ status: 'authenticating', error: null });
           const authService = new AuthService();
           await authService.initiateOAuthFlow();
-          // Note: This will redirect, so code after this won't execute
         } catch (error) {
           set({
             status: 'error',
@@ -77,19 +76,22 @@ export const useWalletStore = create<WalletState>()(
           const zkProof = await proverService.generateZkProof({
             jwt,
             salt,
-            ephemeralPublicKey: ephemeralData.privateKey, // TODO: Convert to public key properly
+            ephemeralPublicKey: ephemeralData.extendedEphemeralPublicKey,
             maxEpoch: ephemeralData.maxEpoch,
             randomness: ephemeralData.randomness
           });
 
-          // 6. Cache proof
+          // 6. Cache proof and session data
           proverService.cacheProof(zkProof);
+          sessionStorage.setItem('zklogin_salt', salt);
+          sessionStorage.setItem('zklogin_jwt', jwt);
 
           // 7. Update state
           set({
             salt,
             zkAddress,
             zkProof,
+            jwt,
             isAuthenticated: true,
             status: 'ready',
             error: null

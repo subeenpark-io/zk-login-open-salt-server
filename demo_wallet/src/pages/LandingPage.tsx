@@ -2,9 +2,23 @@
  * Landing Page - Marketing page with Google OAuth login
  */
 
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { LoginButton } from '../components/wallet/LoginButton';
+import { useWalletStore } from '../store/wallet.store';
 
 export function LandingPage() {
+  const navigate = useNavigate();
+  const isAuthenticated = useWalletStore((state) => state.isAuthenticated);
+  const zkAddress = useWalletStore((state) => state.zkAddress);
+
+  // Redirect to wallet if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && zkAddress) {
+      navigate('/wallet');
+    }
+  }, [isAuthenticated, zkAddress, navigate]);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-sui-dark to-gray-900 text-white">
       <div className="max-w-2xl mx-auto text-center px-4">

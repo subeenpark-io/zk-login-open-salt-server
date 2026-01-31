@@ -3,6 +3,7 @@
  */
 
 import { generateEphemeralKeyPair, createOAuthURL } from '../utils/zklogin.utils';
+import { getExtendedEphemeralPublicKey } from '@mysten/sui/zklogin';
 
 export class AuthService {
   private readonly clientId: string;
@@ -32,14 +33,18 @@ export class AuthService {
     const { keypair, maxEpoch, randomness, nonce } =
       await generateEphemeralKeyPair();
 
-    // 2. Save to sessionStorage
+    // 2. Get extended ephemeral public key for prover
+    const extendedEphemeralPublicKey = getExtendedEphemeralPublicKey(keypair.getPublicKey());
+
+    // 3. Save to sessionStorage
     sessionStorage.setItem('zklogin_ephemeral', JSON.stringify({
-      privateKey: keypair.export().privateKey,
+      privateKey: keypair.getSecretKey(),
+      extendedEphemeralPublicKey,
       maxEpoch,
       randomness: randomness.toString()
     }));
 
-    // 3. Redirect to Google OAuth
+    // 4. Redirect to Google OAuth
     const oauthUrl = createOAuthURL(
       nonce,
       'google',

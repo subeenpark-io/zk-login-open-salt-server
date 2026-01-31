@@ -1,20 +1,14 @@
 /**
  * Salt Service - handles communication with Salt Server
+ * Uses proxy to hide actual Salt Server endpoint from browser
  */
 
 export class SaltService {
-  private readonly endpoint: string;
-
-  constructor() {
-    this.endpoint = import.meta.env.VITE_SALT_SERVER_URL;
-
-    if (!this.endpoint) {
-      throw new Error('VITE_SALT_SERVER_URL is not defined in environment variables');
-    }
-  }
+  // Use proxy path (configured in vite.config.ts)
+  private readonly endpoint = '/api/salt';
 
   /**
-   * Fetch salt from the deployed Salt Server
+   * Fetch salt from the deployed Salt Server via proxy
    *
    * @param jwt - OAuth JWT token
    * @returns Salt value
