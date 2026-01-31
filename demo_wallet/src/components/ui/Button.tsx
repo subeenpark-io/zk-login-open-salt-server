@@ -13,7 +13,7 @@ export function Button({ children, className, variant = "primary", ...props }: B
   return (
     <button
       className={cn(
-        "min-h-[44px] px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+        "min-h-[44px] px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2",
         variant === "primary" && "bg-sui-blue text-white hover:bg-blue-600",
         variant === "secondary" && "bg-gray-200 text-gray-800 hover:bg-gray-300",
         className
