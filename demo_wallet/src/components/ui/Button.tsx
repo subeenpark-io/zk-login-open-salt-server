@@ -2,25 +2,20 @@
  * Button component
  */
 
-import { cn } from '../../utils/cn';
+import { cn } from "../../utils/cn";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary';
+  variant?: "primary" | "secondary";
   children: React.ReactNode;
 }
 
-export function Button({
-  children,
-  className,
-  variant = 'primary',
-  ...props
-}: ButtonProps) {
+export function Button({ children, className, variant = "primary", ...props }: ButtonProps) {
   return (
     <button
       className={cn(
-        'px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed',
-        variant === 'primary' && 'bg-sui-blue text-white hover:bg-blue-600',
-        variant === 'secondary' && 'bg-gray-200 text-gray-800 hover:bg-gray-300',
+        "min-h-[44px] px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed",
+        variant === "primary" && "bg-sui-blue text-white hover:bg-blue-600",
+        variant === "secondary" && "bg-gray-200 text-gray-800 hover:bg-gray-300",
         className
       )}
       {...props}
