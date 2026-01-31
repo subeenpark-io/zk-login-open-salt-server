@@ -2,9 +2,9 @@
  * Transaction History component
  */
 
-import { useState, useEffect } from 'react';
-import { WalletService } from '../../services/wallet.service';
-import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { useState, useEffect } from "react";
+import { WalletService } from "../../services/wallet.service";
+import { LoadingSpinner } from "../ui/LoadingSpinner";
 
 interface Transaction {
   digest: string;
@@ -20,7 +20,7 @@ export function TransactionHistory({ address, refreshTrigger }: TransactionHisto
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const network = import.meta.env.VITE_SUI_NETWORK || 'devnet';
+  const network = import.meta.env.VITE_SUI_NETWORK || "devnet";
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -30,7 +30,7 @@ export function TransactionHistory({ address, refreshTrigger }: TransactionHisto
         const result = await walletService.getTransactionHistory(address, 10);
         setTransactions(result.data as Transaction[]);
       } catch (error) {
-        console.error('Failed to fetch transactions:', error);
+        console.error("Failed to fetch transactions:", error);
       } finally {
         setLoading(false);
       }
@@ -40,12 +40,12 @@ export function TransactionHistory({ address, refreshTrigger }: TransactionHisto
   }, [address, refreshTrigger]);
 
   const formatTime = (timestampMs?: string) => {
-    if (!timestampMs) return '';
+    if (!timestampMs) return "";
     const date = new Date(parseInt(timestampMs));
     const now = new Date();
     const diff = now.getTime() - date.getTime();
 
-    if (diff < 60000) return 'Just now';
+    if (diff < 60000) return "Just now";
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
     return date.toLocaleDateString();
@@ -96,8 +96,9 @@ export function TransactionHistory({ address, refreshTrigger }: TransactionHisto
                 target="_blank"
                 rel="noopener noreferrer"
                 className="font-mono text-sm text-sui-blue hover:underline"
+                title={tx.digest}
               >
-                {tx.digest}
+                {tx.digest.slice(0, 10)}...{tx.digest.slice(-8)}
               </a>
               <span className="text-xs text-gray-400 ml-4 whitespace-nowrap">
                 {formatTime(tx.timestampMs)}
