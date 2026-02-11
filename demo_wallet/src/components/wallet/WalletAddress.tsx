@@ -23,8 +23,8 @@ export function WalletAddress({ address }: WalletAddressProps) {
     <Card>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-gray-500 mb-1">zkLogin Address</p>
-          <p className="font-mono text-sm break-all">{address}</p>
+          <p className="micro-label mb-1">zkLogin Address</p>
+          <p className="font-mono text-sm break-all text-[var(--text-main)]">{address}</p>
         </div>
         <Button variant="secondary" onClick={handleCopy} className="sm:shrink-0">
           {copied ? (
@@ -42,7 +42,7 @@ export function WalletAddress({ address }: WalletAddressProps) {
                   d="M5 13l4 4L19 7"
                 />
               </svg>
-              Copied!
+              Copied
             </>
           ) : (
             <>

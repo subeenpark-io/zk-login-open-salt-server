@@ -64,7 +64,15 @@ VITE_PROVER_URL=https://prover-dev.mystenlabs.com/v1
 # Sui Network
 VITE_SUI_NETWORK=devnet
 VITE_SUI_RPC_URL=https://fullnode.devnet.sui.io
+
+# Server-side Sponsor (gasless demo)
+# Never expose this as VITE_*.
+SPONSORED_TX_ENABLED=true
+SPONSOR_PRIVATE_KEY=suiprivkey1...
+SUI_RPC_URL=https://fullnode.devnet.sui.io
 ```
+
+For production server (`npm run prod` / PM2 / Docker), make sure `SPONSOR_PRIVATE_KEY` is injected as a runtime secret.
 
 ### 3. Google OAuth Setup
 
@@ -90,6 +98,16 @@ npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+If you want gasless sponsored transactions in local dev, run the sponsor server too:
+
+```bash
+npm run build:server
+SPONSORED_TX_ENABLED=true \
+SPONSOR_PRIVATE_KEY=suiprivkey1... \
+SUI_RPC_URL=https://fullnode.devnet.sui.io \
+node dist-server/index.js
+```
 
 ## Build
 
@@ -220,6 +238,16 @@ If ZK proof generation takes too long (>10 seconds):
 - Check network connection
 - Verify Mysten Prover is accessible
 - Try again (sometimes the prover service is slow)
+
+### Sponsored Transaction Disabled
+
+- If send/claim fails with sponsor error, check server env:
+  - `SPONSORED_TX_ENABLED=true`
+  - `SPONSOR_PRIVATE_KEY=suiprivkey1...`
+  - `SUI_RPC_URL=https://fullnode.devnet.sui.io`
+- Confirm server logs show:
+  - `Sponsored TX: enabled`
+  - `Sponsor Address: 0x...`
 
 ## Tech Stack
 

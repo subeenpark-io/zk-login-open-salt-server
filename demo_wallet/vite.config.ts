@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+const sponsorServerTarget = process.env.SPONSOR_SERVER_URL || 'http://localhost:3001';
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -18,6 +20,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/prover/, '/v1'),
         secure: true,
+      },
+      // Proxy /api/sponsor/* to local production server in dev mode
+      '/api/sponsor': {
+        target: sponsorServerTarget,
+        changeOrigin: true,
       },
     },
   },

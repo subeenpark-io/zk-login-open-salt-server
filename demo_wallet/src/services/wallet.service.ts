@@ -11,6 +11,7 @@ import type { ZkProof } from '../types/zklogin.types';
 
 export class WalletService {
   private client: SuiClient;
+  private sponsorAddress: string | null = null;
 
   constructor() {
     const rpcUrl = import.meta.env.VITE_SUI_RPC_URL;
@@ -150,6 +151,7 @@ export class WalletService {
     const [coin] = tx.splitCoins(tx.gas, [amountInMist]);
     tx.transferObjects([coin], toAddress);
     tx.setSender(fromAddress);
+    tx.setGasOwner(await this.getSponsorAddress());
 
     // Get transaction bytes
     const { bytes, signature: userSignature } = await tx.sign({
@@ -174,20 +176,7 @@ export class WalletService {
       userSignature,
     });
 
-    // Execute transaction
-    const result = await this.client.executeTransactionBlock({
-      transactionBlock: bytes,
-      signature: zkLoginSignature,
-      options: {
-        showEffects: true,
-      },
-    });
-
-    if (result.effects?.status?.status !== 'success') {
-      throw new Error(`Transaction failed: ${result.effects?.status?.error || 'Unknown error'}`);
-    }
-
-    return result.digest;
+    return this.executeSponsoredTransaction(bytes, zkLoginSignature);
   }
 
   /**
@@ -195,6 +184,58 @@ export class WalletService {
    */
   private computeAddressSeed(salt: string, sub: string, aud: string): string {
     return genAddressSeed(BigInt(salt), 'sub', sub, aud).toString();
+  }
+
+  /**
+   * Load sponsor address from server (cached in memory)
+   */
+  private async getSponsorAddress(): Promise<string> {
+    if (this.sponsorAddress) {
+      return this.sponsorAddress;
+    }
+
+    const response = await fetch('/api/sponsor/info');
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || typeof data.sponsorAddress !== 'string') {
+      throw new Error(
+        data.error || 'Sponsored transactions are not available. Please contact the operator.'
+      );
+    }
+
+    this.sponsorAddress = data.sponsorAddress;
+    return data.sponsorAddress;
+  }
+
+  /**
+   * Execute transaction via sponsor server endpoint
+   */
+  private async executeSponsoredTransaction(
+    transactionBlock: string,
+    userSignature: string
+  ): Promise<string> {
+    const response = await fetch('/api/sponsor/execute', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        transactionBlock,
+        userSignature,
+      }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(data.error || 'Sponsored execution failed');
+    }
+
+    if (typeof data.digest !== 'string') {
+      throw new Error('Sponsored execution response is missing digest');
+    }
+
+    return data.digest;
   }
 
   /**
