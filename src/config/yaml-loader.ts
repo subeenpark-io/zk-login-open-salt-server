@@ -1,6 +1,6 @@
 import { readFileSync, existsSync } from "node:fs";
 import { parse as parseYaml } from "yaml";
-import type { AppConfig, ProviderConfig, SeedSource } from "../types/index.js";
+import type { AppConfig, PluginsConfig, ProviderConfig, SeedSource } from "../types/index.js";
 
 const DEFAULT_CONFIG_PATHS = [
   "./config.yaml",
@@ -31,6 +31,18 @@ export interface RawConfig {
     issuers: string[];
     enabled?: boolean;
   }>;
+  plugins?: {
+    apiKeyAuth?: {
+      enabled?: boolean;
+      headerName?: string;
+      valueEnvVar?: string;
+      value?: string;
+    };
+    audAllowlist?: {
+      enabled?: boolean;
+      audiences?: string[];
+    };
+  };
 }
 
 type RawProviderConfig =
@@ -76,6 +88,7 @@ type RawSeedSource =
   | { type: "aws"; secretName: string; region?: string; secretKey?: string }
   | { type: "vault"; address: string; path: string; key?: string; tokenEnvVar?: string }
   | { type: "file"; path: string; key?: string }
+  | { type: "nitro"; enclaveCid?: number; port?: number; timeout?: number }
   | string; // shorthand: just the hex value
 
 /**
@@ -134,6 +147,7 @@ function parseConfig(raw: RawConfig): AppConfig {
       rateLimitWindowMs: raw.security?.rateLimitWindowMs ?? 60000,
     },
     provider: parseProviderConfig(raw.provider),
+    plugins: parsePluginsConfig(raw.plugins),
     oauth: raw.oauth,
   };
 }
@@ -253,6 +267,14 @@ function parseSeedSource(raw: RawSeedSource): SeedSource {
         key: raw.key,
       };
 
+    case "nitro":
+      return {
+        type: "nitro",
+        enclaveCid: raw.enclaveCid,
+        port: raw.port,
+        timeout: raw.timeout,
+      };
+
     default:
       throw new Error(`Unknown seed source type: ${(raw as { type: string }).type}`);
   }
@@ -274,6 +296,7 @@ function buildConfigFromEnv(): AppConfig {
       rateLimitWindowMs: 60000,
     },
     provider: buildDefaultProviderFromEnv(),
+    plugins: parsePluginsConfig(),
   };
 }
 
@@ -356,7 +379,67 @@ function buildSeedSourceFromEnv(): SeedSource {
         path: process.env["SEED_FILE_PATH"] ?? "",
       };
 
+    case "nitro": {
+      const enclaveCid = parseOptionalInt(process.env["NITRO_ENCLAVE_CID"]);
+      const port = parseOptionalInt(process.env["NITRO_VSOCK_PORT"]);
+      const timeout = parseOptionalInt(
+        process.env["NITRO_VSOCK_TIMEOUT"] ?? process.env["NITRO_TIMEOUT"]
+      );
+
+      return {
+        type: "nitro",
+        ...(enclaveCid !== undefined ? { enclaveCid } : {}),
+        ...(port !== undefined ? { port } : {}),
+        ...(timeout !== undefined ? { timeout } : {}),
+      };
+    }
+
     default:
       throw new Error(`Unknown seed source: ${seedSource}`);
   }
+}
+
+function parseOptionalInt(value: string | undefined): number | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+function parsePluginsConfig(raw?: RawConfig["plugins"]): PluginsConfig | undefined {
+  const apiKeyEnabledFromEnv = process.env["PLUGIN_API_KEY_AUTH_ENABLED"] === "true";
+  const audAllowlistFromEnv = process.env["PLUGIN_AUD_ALLOWLIST"];
+  const audAllowlistEnabledFromEnv = process.env["PLUGIN_AUD_ALLOWLIST_ENABLED"] === "true";
+
+  const apiKeyEnabled = raw?.apiKeyAuth?.enabled ?? apiKeyEnabledFromEnv;
+  const audAllowlistEnabled = raw?.audAllowlist?.enabled ?? audAllowlistEnabledFromEnv;
+
+  const plugins: PluginsConfig = {};
+  let hasAnyPlugin = false;
+
+  if (apiKeyEnabled) {
+    hasAnyPlugin = true;
+    plugins.apiKeyAuth = {
+      enabled: true,
+      headerName: raw?.apiKeyAuth?.headerName ?? process.env["PLUGIN_API_KEY_HEADER_NAME"],
+      valueEnvVar: raw?.apiKeyAuth?.valueEnvVar ?? process.env["PLUGIN_API_KEY_VALUE_ENV_VAR"],
+      value: raw?.apiKeyAuth?.value,
+    };
+  }
+
+  if (audAllowlistEnabled) {
+    const audiences =
+      raw?.audAllowlist?.audiences ??
+      (audAllowlistFromEnv ? audAllowlistFromEnv.split(",").map((v) => v.trim()).filter(Boolean) : []);
+
+    hasAnyPlugin = true;
+    plugins.audAllowlist = {
+      enabled: true,
+      audiences,
+    };
+  }
+
+  return hasAnyPlugin ? plugins : undefined;
 }

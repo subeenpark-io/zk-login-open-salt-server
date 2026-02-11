@@ -20,7 +20,6 @@ import * as net from "node:net";
 
 // vsock constants
 const AF_VSOCK = 40;
-const VMADDR_CID_PARENT = 3;
 
 /**
  * Configuration options for VsockClient
@@ -68,6 +67,38 @@ export interface JsonRpcError {
  */
 export interface DeriveSaltResult {
   salt: string;
+}
+
+/**
+ * Attestation information returned by enclave
+ */
+export interface AttestationInfoResult {
+  mode: "nitro-enclave";
+  inEnclave: boolean;
+  initialized: boolean;
+  kmsAttestationVerified: boolean;
+  awsRegion: string;
+  kmsKeyConfigured: boolean;
+  kmsProxyConfigured: boolean;
+  timestamp: string;
+}
+
+/**
+ * Seed initialization parameters for enclave bootstrap
+ */
+export interface InitializeSeedParams {
+  encryptedSeed: string;
+  kmsKeyId: string;
+  awsRegion?: string;
+  kmsProxyEndpoint?: string;
+}
+
+/**
+ * Seed initialization result from enclave
+ */
+export interface InitializeSeedResult {
+  initialized: boolean;
+  message?: string;
 }
 
 /**
@@ -156,6 +187,54 @@ export class VsockClient {
 
     const result = response.result as DeriveSaltResult;
     return result.salt;
+  }
+
+  /**
+   * Initialize enclave with encrypted seed and KMS settings
+   *
+   * This is used during Nitro bootstrap when the enclave starts without
+   * ENCRYPTED_SEED in its initial environment.
+   */
+  async initializeSeed(params: InitializeSeedParams): Promise<InitializeSeedResult> {
+    const request: JsonRpcRequest = {
+      jsonrpc: "2.0",
+      method: "initialize",
+      params: {
+        encryptedSeed: params.encryptedSeed,
+        kmsKeyId: params.kmsKeyId,
+        awsRegion: params.awsRegion,
+        kmsProxyEndpoint: params.kmsProxyEndpoint,
+      },
+      id: ++this.requestId,
+    };
+
+    const response = await this.send(request);
+
+    if (response.error) {
+      throw new EnclaveError(response.error.code, response.error.message);
+    }
+
+    return response.result as InitializeSeedResult;
+  }
+
+  /**
+   * Fetch attestation/runtime info from enclave
+   */
+  async getAttestationInfo(): Promise<AttestationInfoResult> {
+    const request: JsonRpcRequest = {
+      jsonrpc: "2.0",
+      method: "attestationInfo",
+      params: {},
+      id: ++this.requestId,
+    };
+
+    const response = await this.send(request);
+
+    if (response.error) {
+      throw new EnclaveError(response.error.code, response.error.message);
+    }
+
+    return response.result as AttestationInfoResult;
   }
 
   /**

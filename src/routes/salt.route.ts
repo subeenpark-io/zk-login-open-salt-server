@@ -1,12 +1,14 @@
 import { Hono } from "hono";
 import { verifyJWT, JWTError } from "../services/jwt.service.js";
 import { createProvider } from "../providers/index.js";
+import { createSaltPlugins, runSaltPlugins, SaltPluginError } from "../plugins/salt-plugins.js";
 import type { SaltProvider } from "../types/index.js";
 import { config } from "../config/index.js";
 import { logger } from "../utils/logger.js";
 import type { SaltRequest, SaltResponse, ErrorResponse } from "../types/index.js";
 
 export const saltRoutes = new Hono();
+const saltPlugins = createSaltPlugins(config.plugins);
 
 let provider: SaltProvider | null = null;
 
@@ -56,6 +58,13 @@ saltRoutes.post("/salt", async (c) => {
       );
     }
 
+    await runSaltPlugins(saltPlugins, {
+      c,
+      jwt: body.jwt,
+      verified,
+      audience,
+    });
+
     const saltProvider = await getProvider();
     const salt = await saltProvider.getSalt(payload.sub, audience, body.jwt);
 
@@ -72,6 +81,16 @@ saltRoutes.post("/salt", async (c) => {
           message: error.message,
         },
         401
+      );
+    }
+
+    if (error instanceof SaltPluginError) {
+      return c.json<ErrorResponse>(
+        {
+          error: error.code,
+          message: error.message,
+        },
+        error.status
       );
     }
 

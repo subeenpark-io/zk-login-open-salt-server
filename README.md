@@ -11,6 +11,7 @@ Mysten Labs의 Salt Server 아키텍처를 기반으로 하되, 다양한 환경
 - 📦 **쉬운 배포**: Docker, Kubernetes, AWS Nitro Enclaves 지원
 - 🔑 **유연한 시크릿 관리**: 환경변수, AWS Secrets Manager, HashiCorp Vault, 파일
 - 🛡️ **보안 우선 설계**: Rate limiting, 민감정보 로깅 방지, Shamir's Secret Sharing
+- 🔌 **선택형 보안 플러그인**: API Key 인증, JWT aud allowlist를 필요 시만 활성화
 - 🔄 **다양한 배포 모드**: Standalone, Proxy, Hybrid, Multi-tenant
 - 📝 **YAML 설정**: 직관적인 YAML 기반 설정 파일 지원
 - 🧩 **SDK 제공**: 기존 서버에 쉽게 통합 가능
@@ -150,6 +151,20 @@ cp config.example.yaml config.yaml
 # config.yaml 수정 (seed 설정 등)
 # 그리고 실행
 npm start
+```
+
+선택형 보안 플러그인 예시:
+
+```yaml
+plugins:
+  apiKeyAuth:
+    enabled: true
+    valueEnvVar: SALT_API_KEY
+  audAllowlist:
+    enabled: true
+    audiences:
+      - "my-client-id.apps.googleusercontent.com"
+      - "my-staging-*"
 ```
 
 ### 2. Standalone (자체 시드)
@@ -357,6 +372,35 @@ JWT를 검증하고 salt를 반환합니다.
       "message": "Provider is healthy"
     }
   }
+}
+```
+
+### `GET /v1/attestation`
+
+Nitro Enclave attestation/runtime 정보를 조회합니다.
+
+Nitro를 사용하지 않는 provider 설정에서는 `status: "unavailable"`을 반환합니다.
+
+**Response (200/503):**
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-01-01T00:00:00.000Z",
+  "providerType": "local",
+  "results": [
+    {
+      "target": "local",
+      "reachable": true,
+      "mode": "nitro-enclave",
+      "inEnclave": true,
+      "initialized": true,
+      "kmsAttestationVerified": true,
+      "awsRegion": "us-west-2",
+      "kmsKeyConfigured": true,
+      "kmsProxyConfigured": false,
+      "timestamp": "2026-01-01T00:00:00.000Z"
+    }
+  ]
 }
 ```
 

@@ -224,5 +224,31 @@ export interface AppConfig {
   logging: LoggingConfig;
   security: SecurityConfig;
   provider: ProviderConfig;
+  plugins?: PluginsConfig | undefined;
   oauth?: OAuthProviderConfig[] | undefined;
+}
+
+// ============================================
+// Plugin 타입
+// ============================================
+
+export interface ApiKeyAuthPluginConfig {
+  enabled: boolean;
+  /** Header name that contains API key (default: x-api-key) */
+  headerName?: string | undefined;
+  /** Environment variable name that stores API key (default: SALT_API_KEY) */
+  valueEnvVar?: string | undefined;
+  /** Direct API key value (prefer env in production) */
+  value?: string | undefined;
+}
+
+export interface AudienceAllowlistPluginConfig {
+  enabled: boolean;
+  /** Allowed audience patterns (supports '*' wildcard) */
+  audiences: string[];
+}
+
+export interface PluginsConfig {
+  apiKeyAuth?: ApiKeyAuthPluginConfig | undefined;
+  audAllowlist?: AudienceAllowlistPluginConfig | undefined;
 }

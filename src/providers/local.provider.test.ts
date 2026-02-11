@@ -39,7 +39,7 @@ describe("LocalProvider", () => {
     const after = await provider.healthCheck();
 
     expect(before.healthy).toBe(true);
-    expect(after.healthy).toBe(true);
+    expect(after.healthy).toBe(false);
     expect(seedRef.every((value) => value === 0)).toBe(true);
   });
 });

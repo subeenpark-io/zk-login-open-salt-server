@@ -17,5 +17,8 @@ export {
   type JsonRpcResponse,
   type JsonRpcError,
   type DeriveSaltResult,
+  type AttestationInfoResult,
+  type InitializeSeedParams,
+  type InitializeSeedResult,
   type HealthCheckResult,
 } from "./vsock-client.js";

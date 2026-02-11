@@ -143,7 +143,6 @@ export class VsockServer {
         // For development/testing, we use a regular TCP socket
         this.server.listen(
           {
-            // @ts-expect-error - Using vsock-specific options
             family: AF_VSOCK,
             host: String(VMADDR_CID_ANY),
             port: this.port,
