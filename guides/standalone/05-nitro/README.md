@@ -15,6 +15,30 @@ master seed를 하드웨어 수준에서 격리합니다.
 - Terraform (인프라 배포)
 - AWS CLI v2
 
+## 배포 준비 체크리스트
+
+아래 항목만 준비하면 됩니다.
+
+1. AWS 인증
+```bash
+aws sts get-caller-identity
+```
+
+2. Terraform 변수 파일
+```bash
+cp deploy/aws-nitro/terraform/terraform.tfvars.example \
+   deploy/aws-nitro/terraform/terraform.tfvars
+# aws_region / environment / instance_type 등 수정
+```
+
+3. (선택) 고정 master seed
+- 미지정 시 배포 스크립트가 자동 생성합니다.
+- 고정 운영을 원하면 `--seed-hex 0x...`로 전달합니다.
+
+4. (선택) EIF 로컬 빌드 환경
+- `--build-eif`를 쓰려면 로컬에 Docker + nitro-cli 필요
+- 준비되지 않았다면 미리 만든 EIF를 `enclave/zklogin-enclave.eif`에 두고 실행 가능
+
 ## 배포 방법
 
 전체 Nitro Enclaves 구현은 다음 디렉토리에 있습니다:
@@ -48,7 +72,77 @@ terraform plan
 terraform apply
 ```
 
-### 2. (권장) 통합 배포 스크립트 실행
+## 원클릭 스크립트 (권장)
+
+루트에서 아래 명령 하나로 인프라 생성 + enclave bootstrap까지 진행할 수 있습니다.
+
+### 사용자 배포용 (다운로드 후 바로 실행)
+
+저장소를 받은 사용자가 최소 입력으로 바로 올리려면 `nitro-quickstart.sh`를 사용하세요.
+
+```bash
+# 1) 저장소 다운로드 후 루트로 이동
+cd zk-login-open-salt-server
+
+# 2) 실행 권한 (zip 다운로드 시 필요)
+chmod +x scripts/nitro-quickstart.sh scripts/nitro-up.sh
+
+# 3) 배포 실행 (EC2 + Enclave + bootstrap)
+./scripts/nitro-quickstart.sh \
+  --region ap-northeast-2 \
+  --instance-type c6i.xlarge
+
+# (선택) SSH 키를 붙이고 싶으면
+./scripts/nitro-quickstart.sh \
+  --region ap-northeast-2 \
+  --instance-type c6i.xlarge \
+  --key-name my-ec2-key
+
+# (권장) 사전 빌드 EIF URL을 사용해 reproducible 배포
+./scripts/nitro-quickstart.sh \
+  --region ap-northeast-2 \
+  --instance-type c6i.xlarge \
+  --eif-url "https://<your-release-or-s3>/zklogin-enclave.eif" \
+  --eif-sha256 "<sha256>"
+```
+
+`nitro-quickstart.sh`는 다음을 자동으로 처리합니다.
+- `deploy/aws-nitro/terraform/terraform.tfvars`가 없으면 example에서 생성
+- 전달한 값(`aws_region`, `environment`, `instance_type`, `key_name`)을 tfvars에 반영
+- EIF 준비 자동화: 기존 파일 사용 또는 URL 다운로드(`--eif-url`) 또는 로컬 빌드(`--build-eif`)
+- 기존 `./scripts/nitro-up.sh`를 호출해 전체 배포 진행
+
+> 참고: `EIF`는 파일 크기가 커서 보통 Git에 커밋하지 않고 Release/S3에서 내려받는 방식을 권장합니다.
+
+내릴 때는 아래 스크립트를 사용합니다.
+
+```bash
+# 서비스/엔클레이브 중지 + terraform destroy
+./scripts/nitro-down.sh
+
+# 인스턴스 내부 서비스/엔클레이브만 중지
+./scripts/nitro-down.sh --stop-only
+```
+
+### 2. 고급 모드 (디버깅/세부 제어 시)
+
+일반 사용자 배포는 `nitro-quickstart.sh`를 권장합니다.
+아래는 내부 단계별 제어가 필요할 때만 사용하세요.
+
+#### 2-1) 래퍼 스크립트 (`scripts/nitro-up.sh`)
+
+```bash
+# terraform apply + 앱/EIF/ENCRYPTED_SEED bootstrap
+./scripts/nitro-up.sh
+
+# EIF를 로컬에서 빌드
+./scripts/nitro-up.sh --build-eif
+
+# seed 고정
+./scripts/nitro-up.sh --seed-hex "0x<64-hex>"
+```
+
+#### 2-2) 저수준 배포 스크립트 (`guides/standalone/05-nitro/deploy-nitro.sh`)
 
 아래 스크립트는 다음 작업을 한 번에 수행합니다.
 - 앱 빌드 + 아티팩트 패키징

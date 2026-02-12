@@ -52,3 +52,9 @@ temp/
 # Bun
 bun.lockb
 *.tar.gz
+enclave/*.eif
+enclave/pcr-values.json
+
+
+.claude/
+.sisyphus/
