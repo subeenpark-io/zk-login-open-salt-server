@@ -10,9 +10,9 @@ import { LoadingSpinner } from "../components/ui/LoadingSpinner";
 import { Button } from "../components/ui/Button";
 
 const BUILD_STEPS = [
-  "Salt Server에서 사용자 salt 조회",
-  "JWT 기반 zkLogin 주소 계산",
-  "Mysten prover로 ZK proof 생성",
+  "Prepare wallet parameters from the backend.",
+  "Compute the zkLogin address from the JWT.",
+  "Generate a ZK proof with the Mysten prover.",
 ];
 
 export function AuthCallbackPage() {
@@ -50,11 +50,12 @@ export function AuthCallbackPage() {
         {status === "loading" && (
           <section className="panel w-full p-6 text-center sm:p-7">
             <p className="micro-label">Preparing Wallet</p>
-            <h1 className="display-font mt-2 text-3xl leading-tight text-[var(--text-main)]">
+            <h1 className="display-font title-balance mt-2 text-3xl text-[var(--text-main)]">
               Building Your zkLogin Wallet
             </h1>
             <p className="mt-3 text-sm text-[var(--text-dim)]">
-              로그인 토큰을 검증하고 지갑 주소를 생성하는 중입니다. 잠시만 기다려주세요.
+              Verifying your login token and generating your wallet address.
+              This usually takes a moment.
             </p>
 
             <div className="mt-5">
@@ -75,8 +76,8 @@ export function AuthCallbackPage() {
         {error && (
           <section className="panel w-full p-6 sm:p-7">
             <p className="micro-label">Authentication Error</p>
-            <h2 className="display-font mt-2 text-2xl text-[var(--text-main)]">로그인 처리 실패</h2>
-            <p className="mt-3 rounded-xl border border-[rgba(255,122,89,0.45)] bg-[rgba(255,122,89,0.08)] p-3 text-sm text-[var(--text-main)]">
+            <h2 className="display-font mt-2 text-2xl text-[var(--text-main)]">Login Failed</h2>
+            <p className="mt-3 rounded-xl border border-[rgba(240,173,55,0.48)] bg-[rgba(240,173,55,0.14)] p-3 text-sm text-[#8f4918]">
               {error}
             </p>
             <div className="mt-5 flex flex-col gap-3 sm:flex-row">

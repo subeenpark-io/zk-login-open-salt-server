@@ -10,11 +10,12 @@ import { BalanceCard } from "../components/wallet/BalanceCard";
 import { SendSuiModal } from "../components/wallet/SendSuiModal";
 import { TransactionHistory } from "../components/wallet/TransactionHistory";
 import { Button } from "../components/ui/Button";
+import { Copy, Droplets, ExternalLink, Gamepad2, LogOut, Send } from "lucide-react";
 
 const DEMO_ACTIONS = [
-  "받은 Devnet SUI를 다른 주소로 전송해보기",
-  "전송 결과를 Explorer에서 바로 검증하기",
-  "Google 로그인 기반 온보딩 UX 체험하기",
+  "Send your SUI to another address in a single flow.",
+  "Verify each transfer result directly in an explorer.",
+  "Experience low-friction onboarding with Google-powered login.",
 ];
 
 export function DashboardPage() {
@@ -25,7 +26,7 @@ export function DashboardPage() {
   const [lastTxDigest, setLastTxDigest] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const network = import.meta.env.VITE_SUI_NETWORK || "devnet";
+  const network = import.meta.env.VITE_SUI_NETWORK || "testnet";
 
   if (!isAuthenticated || !zkAddress) {
     return <Navigate to="/" replace />;
@@ -57,12 +58,12 @@ export function DashboardPage() {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="micro-label">Wallet Ready</p>
-              <h1 className="display-font mt-2 text-3xl leading-[1.05] text-[var(--text-main)] sm:text-4xl">
+              <h1 className="display-font title-balance mt-2 text-[clamp(2rem,7.3vw,3.2rem)] text-[var(--text-main)]">
                 Your zkLogin Wallet is Live.
               </h1>
-              <p className="mt-3 max-w-2xl text-sm text-[var(--text-dim)] sm:text-base">
-                구글 로그인 직후 생성된 지갑으로 바로 트랜잭션을 실행하고, 블록 탐색기에서 결과를
-                확인할 수 있습니다.
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--text-dim)] sm:text-base">
+                Your wallet is created right after Google sign-in.
+                You can execute transactions immediately and inspect results in an explorer.
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="tag-badge">{network}</span>
@@ -70,13 +71,14 @@ export function DashboardPage() {
               </div>
             </div>
             <Button variant="secondary" onClick={logout} className="w-full sm:w-auto">
+              <LogOut className="h-4 w-4 shrink-0" />
               Logout
             </Button>
           </div>
         </section>
 
         {lastTxDigest && (
-          <section className="panel animated-appear delay-1 mt-5 border-[rgba(45,212,191,0.45)] p-4">
+          <section className="panel animated-appear delay-1 mt-5 border-[rgba(28,154,137,0.42)] p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-[var(--text-main)]">Transaction Sent</p>
@@ -87,12 +89,13 @@ export function DashboardPage() {
                   className="mt-1 inline-block font-mono text-xs text-[var(--accent-main)] hover:underline"
                 >
                   {lastTxDigest.slice(0, 16)}...{lastTxDigest.slice(-8)}
+                  <ExternalLink className="ml-1 inline h-3 w-3 align-[-1px]" />
                 </a>
               </div>
               <button
                 type="button"
                 onClick={() => setLastTxDigest(null)}
-                className="rounded-lg border border-[rgba(255,255,255,0.18)] px-2 py-1 text-xs text-[var(--text-dim)] hover:text-[var(--text-main)]"
+                className="rounded-lg border border-[rgba(171,123,81,0.32)] bg-[rgba(255,247,236,0.84)] px-2 py-1 text-xs text-[var(--text-dim)] hover:text-[var(--text-main)]"
               >
                 Close
               </button>
@@ -108,11 +111,15 @@ export function DashboardPage() {
         <section className="panel animated-appear delay-2 mt-6 p-5 sm:p-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="micro-label">Quick Demo Actions</p>
-            <p className="text-xs text-[var(--text-dim)]">모바일에서 즉시 체험 가능</p>
+            <p className="text-xs text-[var(--text-dim)]">Ready for instant mobile testing</p>
           </div>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Button onClick={() => setShowSendModal(true)}>Send SUI</Button>
+            <Button onClick={() => setShowSendModal(true)}>
+              <Send className="h-4 w-4 shrink-0" />
+              Send SUI
+            </Button>
             <Button variant="secondary" onClick={handleCopyAddress}>
+              <Copy className="h-4 w-4 shrink-0" />
               {copied ? "Address Copied" : "Copy Address"}
             </Button>
             <Button
@@ -121,6 +128,7 @@ export function DashboardPage() {
                 window.open(faucetUrl, "_blank", "noopener,noreferrer");
               }}
             >
+              <Droplets className="h-4 w-4 shrink-0" />
               Open Faucet
             </Button>
           </div>
@@ -130,8 +138,11 @@ export function DashboardPage() {
           <p className="micro-label">What Users Can Do Now</p>
           <ul className="mt-3 space-y-2">
             {DEMO_ACTIONS.map((item) => (
-              <li key={item} className="flex items-start gap-2 text-sm text-[var(--text-main)]">
-                <span className="mt-1 h-2 w-2 rounded-full bg-[var(--accent-main)]" />
+              <li
+                key={item}
+                className="grid grid-cols-[8px_1fr] items-start gap-x-2 text-sm leading-relaxed text-[var(--text-main)]"
+              >
+                <span className="mt-[0.5rem] h-2 w-2 rounded-full bg-[var(--accent-warm)]" />
                 <span>{item}</span>
               </li>
             ))}
@@ -143,10 +154,13 @@ export function DashboardPage() {
             <div>
               <p className="micro-label">DApp Examples</p>
               <p className="mt-2 text-sm text-[var(--text-dim)]">
-                지갑 데모 외에 게임형 dApp 데모도 바로 체험할 수 있습니다.
+                Alongside the wallet demo, users can launch a game-style dApp instantly.
               </p>
             </div>
-            <Button onClick={() => navigate("/dapps/game")}>Open Game DApp</Button>
+            <Button onClick={() => navigate("/dapps/game")}>
+              <Gamepad2 className="h-4 w-4 shrink-0" />
+              Open Game DApp
+            </Button>
           </div>
         </section>
 

@@ -14,8 +14,8 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json* ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install full dependencies for TypeScript build
+RUN npm ci && npm cache clean --force
 
 # Copy source
 COPY tsconfig.json ./
@@ -24,11 +24,14 @@ COPY src ./src
 # Build TypeScript
 RUN npm run build
 
+# Remove dev dependencies before copying to production stage
+RUN npm prune --omit=dev
+
 # Production stage - minimal image for enclave
 FROM node:22-alpine AS production
 
 # Install only essential packages
-RUN apk add --no-cache dumb-init
+RUN apk add --no-cache dumb-init socat
 
 # Create non-root user
 RUN addgroup -g 1001 -S enclave && \
@@ -50,8 +53,5 @@ USER enclave
 # Expose vsock port (for documentation, vsock doesn't use TCP ports)
 EXPOSE 5000
 
-# Use dumb-init for proper signal handling
-ENTRYPOINT ["dumb-init", "--"]
-
-# Start the enclave application
-CMD ["node", "dist/main.js"]
+# Nitro runtime can bypass Docker ENTRYPOINT semantics, so start bridge + app in CMD.
+CMD ["/bin/sh", "-lc", "set -eu; socat -d -d VSOCK-LISTEN:${VSOCK_PORT:-5000},fork,reuseaddr UNIX-CONNECT:${ENCLAVE_RPC_SOCKET_PATH:-/tmp/zklogin-enclave-rpc.sock} & pid=$!; sleep 0.2; kill -0 \"$pid\" 2>/dev/null || { echo \"[enclave] failed to start VSOCK listener\" >&2; exit 1; }; exec /usr/local/bin/node /app/dist/main.js"]

@@ -46,6 +46,19 @@ interface InitializeParams {
   kmsProxyEndpoint?: string;
 }
 
+interface InitializePlaintextParams {
+  seedHex: string;
+}
+
+function parseSeedHex(seedHex: string): Uint8Array {
+  const normalized = seedHex.startsWith("0x") ? seedHex.slice(2) : seedHex;
+  if (!/^[0-9a-fA-F]{64}$/.test(normalized)) {
+    throw new Error("seedHex must be a 32-byte hex string (0x + 64 hex chars)");
+  }
+
+  return new Uint8Array(Buffer.from(normalized, "hex"));
+}
+
 /**
  * Load configuration from environment
  */
@@ -172,6 +185,22 @@ async function main(): Promise<void> {
     return {
       initialized: true,
       message: "Seed initialized successfully",
+    };
+  });
+
+  // Register plaintext initialize method (host-decrypted fallback)
+  server.registerMethod("initializePlaintext", (params) => {
+    const { seedHex } = params as Partial<InitializePlaintextParams>;
+    if (!seedHex || typeof seedHex !== "string") {
+      throw new Error("Missing or invalid 'seedHex' parameter");
+    }
+
+    const seed = parseSeedHex(seedHex);
+    saltService.initialize(seed);
+
+    return {
+      initialized: true,
+      message: "Seed initialized from plaintext successfully",
     };
   });
 

@@ -1,19 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=Syne:wght@600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg-main: #0d111f;
-  --bg-panel: #111a30;
-  --bg-soft: #1a2746;
-  --line-soft: #2f3f66;
-  --text-main: #f2f6ff;
-  --text-dim: #a7b7d8;
-  --accent-main: #2dd4bf;
-  --accent-strong: #14b8a6;
-  --accent-warm: #ff7a59;
+  --bg-main: #f6efe2;
+  --bg-layer: #fff6ea;
+  --bg-panel: rgba(255, 252, 246, 0.82);
+  --bg-soft: #fff0de;
+  --line-soft: rgba(171, 123, 81, 0.24);
+  --text-main: #261c14;
+  --text-dim: #6f604f;
+  --accent-main: #ff6b45;
+  --accent-strong: #eb4f25;
+  --accent-warm: #f0ad37;
+  --accent-mint: #1c9a89;
 }
 
 * {
@@ -34,16 +36,22 @@ html {
 body {
   margin: 0;
   color: var(--text-main);
-  font-family: "IBM Plex Sans KR", ui-sans-serif, sans-serif;
+  font-family: "Manrope", ui-sans-serif, sans-serif;
   background:
-    radial-gradient(1200px 700px at 15% -10%, rgba(45, 212, 191, 0.18), transparent 60%),
-    radial-gradient(1000px 600px at 100% 0%, rgba(255, 122, 89, 0.12), transparent 60%),
-    linear-gradient(150deg, #0a1020 0%, #111a30 55%, #0d111f 100%);
+    radial-gradient(1200px 720px at 8% -15%, rgba(255, 131, 95, 0.32), transparent 62%),
+    radial-gradient(980px 640px at 100% 0%, rgba(28, 154, 137, 0.16), transparent 62%),
+    radial-gradient(680px 420px at 78% 92%, rgba(240, 173, 55, 0.18), transparent 66%),
+    linear-gradient(150deg, #f8f1e7 0%, #fef9f2 52%, #f6efe2 100%);
 }
 
 .display-font {
-  font-family: "Syne", ui-sans-serif, sans-serif;
-  letter-spacing: -0.02em;
+  font-family: "Outfit", ui-sans-serif, sans-serif;
+  letter-spacing: -0.025em;
+}
+
+.title-balance {
+  text-wrap: balance;
+  line-height: 1.12;
 }
 
 .safe-area-inset {
@@ -54,12 +62,12 @@ body {
 }
 
 .panel {
-  background: linear-gradient(155deg, rgba(26, 39, 70, 0.75), rgba(17, 26, 48, 0.9));
-  border: 1px solid rgba(98, 122, 170, 0.38);
+  background: linear-gradient(160deg, var(--bg-panel), rgba(255, 242, 225, 0.7));
+  border: 1px solid var(--line-soft);
   border-radius: 20px;
   box-shadow:
-    0 10px 30px rgba(3, 8, 20, 0.45),
-    inset 0 1px 0 rgba(210, 227, 255, 0.05);
+    0 14px 34px rgba(122, 82, 50, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.68);
   backdrop-filter: blur(8px);
 }
 
@@ -76,8 +84,8 @@ body {
   width: 100%;
   min-height: 44px;
   border-radius: 12px;
-  border: 1px solid rgba(162, 186, 235, 0.35);
-  background: rgba(10, 17, 33, 0.62);
+  border: 1px solid rgba(186, 142, 98, 0.34);
+  background: rgba(255, 252, 248, 0.9);
   color: var(--text-main);
   padding: 10px 12px;
   outline: none;
@@ -85,34 +93,34 @@ body {
 }
 
 .field-input::placeholder {
-  color: rgba(167, 183, 216, 0.62);
+  color: rgba(111, 96, 79, 0.6);
 }
 
 .field-input:focus {
-  border-color: rgba(45, 212, 191, 0.75);
-  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.2);
-  background: rgba(10, 17, 33, 0.8);
+  border-color: rgba(255, 107, 69, 0.62);
+  box-shadow: 0 0 0 3px rgba(255, 107, 69, 0.16);
+  background: rgba(255, 255, 255, 0.96);
 }
 
 .tag-badge {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  border: 1px solid rgba(162, 186, 235, 0.36);
-  background: rgba(255, 255, 255, 0.05);
-  padding: 4px 10px;
+  border: 1px solid rgba(171, 123, 81, 0.32);
+  background: rgba(255, 245, 231, 0.78);
+  padding: 5px 11px;
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--text-main);
+  color: #4f3c28;
 }
 
 .micro-label {
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-dim);
+  color: #7d6a55;
   font-weight: 700;
 }
 
@@ -120,12 +128,12 @@ body {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  opacity: 0.22;
+  opacity: 0.38;
   background-image:
-    linear-gradient(rgba(138, 164, 211, 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(138, 164, 211, 0.08) 1px, transparent 1px);
-  background-size: 28px 28px;
-  mask-image: radial-gradient(circle at center, black 50%, transparent 95%);
+    linear-gradient(rgba(152, 116, 79, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(152, 116, 79, 0.07) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(circle at center, black 42%, transparent 92%);
 }
 
 .animated-appear {

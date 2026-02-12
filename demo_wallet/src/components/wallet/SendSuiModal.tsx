@@ -7,6 +7,7 @@ import { Button } from "../ui/Button";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
 import { WalletService } from "../../services/wallet.service";
 import { StorageService } from "../../services/storage.service";
+import { ProverService } from "../../services/prover.service";
 import { useWalletStore } from "../../store/wallet.store";
 
 interface SendSuiModalProps {
@@ -16,7 +17,7 @@ interface SendSuiModalProps {
 }
 
 export function SendSuiModal({ isOpen, onClose, onSuccess }: SendSuiModalProps) {
-  const { zkAddress, zkProof: storeZkProof, salt: storeSalt, jwt: storeJwt } = useWalletStore();
+  const { zkAddress, salt: storeSalt, jwt: storeJwt } = useWalletStore();
   const [toAddress, setToAddress] = useState("");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,10 +33,8 @@ export function SendSuiModal({ isOpen, onClose, onSuccess }: SendSuiModalProps) 
 
     const salt = storeSalt || sessionStorage.getItem("zklogin_salt");
     const jwt = storeJwt || sessionStorage.getItem("zklogin_jwt");
-    const zkProofStr = sessionStorage.getItem("zklogin_proof");
-    const zkProof = storeZkProof || (zkProofStr ? JSON.parse(zkProofStr) : null);
 
-    if (!zkAddress || !zkProof || !salt || !jwt) {
+    if (!zkAddress || !salt || !jwt) {
       setError("Session expired. Please login again.");
       return;
     }
@@ -60,13 +59,23 @@ export function SendSuiModal({ isOpen, onClose, onSuccess }: SendSuiModalProps) 
         throw new Error("Session expired. Please login again.");
       }
 
+      const proverService = new ProverService();
+      const freshProof = await proverService.generateZkProof({
+        jwt,
+        salt,
+        ephemeralPublicKey: ephemeralData.extendedEphemeralPublicKey,
+        maxEpoch: ephemeralData.maxEpoch,
+        randomness: ephemeralData.randomness,
+      });
+      proverService.cacheProof(freshProof);
+
       const walletService = new WalletService();
       const digest = await walletService.sendSui({
         fromAddress: zkAddress,
         toAddress,
         amount,
         privateKey: ephemeralData.privateKey,
-        zkProof,
+        zkProof: freshProof,
         maxEpoch: ephemeralData.maxEpoch,
         userSalt: salt,
         jwt,
@@ -85,7 +94,7 @@ export function SendSuiModal({ isOpen, onClose, onSuccess }: SendSuiModalProps) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(5,9,20,0.7)] p-4 backdrop-blur-sm sm:items-center">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(54,30,12,0.35)] p-4 backdrop-blur-sm sm:items-center">
       <div className="panel w-full max-w-md p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -95,7 +104,7 @@ export function SendSuiModal({ isOpen, onClose, onSuccess }: SendSuiModalProps) 
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-[rgba(255,255,255,0.2)] px-2 py-1 text-xs text-[var(--text-dim)] hover:text-[var(--text-main)]"
+            className="rounded-lg border border-[rgba(171,123,81,0.32)] bg-[rgba(255,247,236,0.84)] px-2 py-1 text-xs text-[var(--text-dim)] hover:text-[var(--text-main)]"
           >
             Close
           </button>
@@ -135,8 +144,8 @@ export function SendSuiModal({ isOpen, onClose, onSuccess }: SendSuiModalProps) 
           </div>
 
           {error && (
-            <div className="rounded-xl border border-[rgba(255,122,89,0.45)] bg-[rgba(255,122,89,0.08)] p-3">
-              <p className="text-sm text-[#ffc3b4]">{error}</p>
+            <div className="rounded-xl border border-[rgba(240,173,55,0.45)] bg-[rgba(240,173,55,0.14)] p-3">
+              <p className="text-sm text-[#8f4918]">{error}</p>
             </div>
           )}
 

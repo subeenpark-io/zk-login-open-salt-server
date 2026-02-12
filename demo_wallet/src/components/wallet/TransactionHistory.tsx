@@ -21,7 +21,7 @@ export function TransactionHistory({ address, refreshTrigger }: TransactionHisto
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const network = import.meta.env.VITE_SUI_NETWORK || "devnet";
+  const network = import.meta.env.VITE_SUI_NETWORK || "testnet";
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -69,7 +69,7 @@ export function TransactionHistory({ address, refreshTrigger }: TransactionHisto
 
   return (
     <Card>
-      <div className="flex justify-between items-center mb-4">
+      <div className="mb-4 flex items-center justify-between">
         <h3 className="display-font text-2xl text-[var(--text-main)]">Recent Transactions</h3>
         <a
           href={`https://${network}.suivision.xyz/account/${address}`}
@@ -90,18 +90,18 @@ export function TransactionHistory({ address, refreshTrigger }: TransactionHisto
           {transactions.map((tx) => (
             <div
               key={tx.digest}
-              className="flex items-center justify-between rounded-lg border border-[rgba(162,186,235,0.16)] bg-[rgba(8,14,27,0.5)] px-3 py-3 last:mb-0"
+              className="flex flex-col gap-1 rounded-lg border border-[rgba(171,123,81,0.2)] bg-[rgba(255,249,240,0.84)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between last:mb-0"
             >
               <a
                 href={explorerUrl(tx.digest)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-sm text-[var(--accent-main)] hover:underline"
+                className="break-all font-mono text-xs text-[var(--accent-main)] hover:underline sm:text-sm"
                 title={tx.digest}
               >
                 {tx.digest.slice(0, 10)}...{tx.digest.slice(-8)}
               </a>
-              <span className="ml-4 whitespace-nowrap text-xs text-[var(--text-dim)]">
+              <span className="text-xs text-[var(--text-dim)] sm:whitespace-nowrap">
                 {formatTime(tx.timestampMs)}
               </span>
             </div>

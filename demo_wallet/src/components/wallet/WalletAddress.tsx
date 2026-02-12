@@ -3,6 +3,7 @@
  */
 
 import { useState } from "react";
+import { CheckCheck, Copy } from "lucide-react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 
@@ -10,8 +11,15 @@ interface WalletAddressProps {
   address: string;
 }
 
+function shortenAddress(value: string, prefix = 14, suffix = 10): string {
+  if (!value) return "";
+  if (value.length <= prefix + suffix + 3) return value;
+  return `${value.slice(0, prefix)}...${value.slice(-suffix)}`;
+}
+
 export function WalletAddress({ address }: WalletAddressProps) {
   const [copied, setCopied] = useState(false);
+  const displayAddress = shortenAddress(address);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(address);
@@ -24,42 +32,20 @@ export function WalletAddress({ address }: WalletAddressProps) {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="micro-label mb-1">zkLogin Address</p>
-          <p className="font-mono text-sm break-all text-[var(--text-main)]">{address}</p>
+          <p className="font-mono text-sm leading-relaxed text-[var(--text-main)] truncate" title={address}>
+            {displayAddress}
+          </p>
         </div>
-        <Button variant="secondary" onClick={handleCopy} className="sm:shrink-0">
+        <Button variant="secondary" onClick={handleCopy} className="sm:shrink-0 min-w-[110px]">
           {copied ? (
             <>
-              <svg
-                className="w-4 h-4 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-              Copied
+              <CheckCheck className="h-4 w-4 shrink-0" />
+              <span className="inline-block w-[52px] text-center">Copied</span>
             </>
           ) : (
             <>
-              <svg
-                className="w-4 h-4 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                />
-              </svg>
-              Copy
+              <Copy className="h-4 w-4 shrink-0" />
+              <span className="inline-block w-[52px] text-center">Copy</span>
             </>
           )}
         </Button>

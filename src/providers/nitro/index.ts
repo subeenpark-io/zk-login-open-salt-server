@@ -19,6 +19,7 @@ export {
   type DeriveSaltResult,
   type AttestationInfoResult,
   type InitializeSeedParams,
+  type InitializePlaintextSeedParams,
   type InitializeSeedResult,
   type HealthCheckResult,
 } from "./vsock-client.js";

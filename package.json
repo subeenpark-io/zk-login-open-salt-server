@@ -33,6 +33,7 @@
     "npm": "10.8.2"
   },
   "dependencies": {
+    "@aws-sdk/client-kms": "3.693.0",
     "@aws-sdk/client-secrets-manager": "3.693.0",
     "@hono/node-server": "1.19.9",
     "@noble/hashes": "1.8.0",

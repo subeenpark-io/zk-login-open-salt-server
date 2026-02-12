@@ -16,10 +16,7 @@
  * @see https://man7.org/linux/man-pages/man7/vsock.7.html
  */
 
-import * as net from "node:net";
-
-// vsock constants
-const AF_VSOCK = 40;
+import { spawn } from "node:child_process";
 
 /**
  * Configuration options for VsockClient
@@ -91,6 +88,10 @@ export interface InitializeSeedParams {
   kmsKeyId: string;
   awsRegion?: string;
   kmsProxyEndpoint?: string;
+}
+
+export interface InitializePlaintextSeedParams {
+  seedHex: string;
 }
 
 /**
@@ -218,6 +219,28 @@ export class VsockClient {
   }
 
   /**
+   * Initialize enclave with plaintext seed (host-side decrypted fallback path)
+   */
+  async initializePlaintextSeed(params: InitializePlaintextSeedParams): Promise<InitializeSeedResult> {
+    const request: JsonRpcRequest = {
+      jsonrpc: "2.0",
+      method: "initializePlaintext",
+      params: {
+        seedHex: params.seedHex,
+      },
+      id: ++this.requestId,
+    };
+
+    const response = await this.send(request);
+
+    if (response.error) {
+      throw new EnclaveError(response.error.code, response.error.message);
+    }
+
+    return response.result as InitializeSeedResult;
+  }
+
+  /**
    * Fetch attestation/runtime info from enclave
    */
   async getAttestationInfo(): Promise<AttestationInfoResult> {
@@ -273,128 +296,120 @@ export class VsockClient {
    * Send a JSON-RPC request to the enclave
    */
   private async send(request: JsonRpcRequest): Promise<JsonRpcResponse> {
+    const requestJson = JSON.stringify(request);
+    const requestBody = Buffer.from(requestJson, "utf-8");
+    const lengthPrefix = Buffer.alloc(4);
+    lengthPrefix.writeUInt32BE(requestBody.length, 0);
+    const payload = Buffer.concat([lengthPrefix, requestBody]);
+
+    const rawResponse = await this.sendViaSocat(payload);
+    return this.parseJsonRpcResponse(rawResponse);
+  }
+
+  private async sendViaSocat(payload: Buffer): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const requestData = JSON.stringify(request);
-      let responseData = "";
+      const timeoutSeconds = Math.max(1, Math.ceil(this.timeout / 1000));
+      const proc = spawn(
+        "socat",
+        ["-T", String(timeoutSeconds), "-", `VSOCK-CONNECT:${this.cid}:${this.port}`],
+        { stdio: ["pipe", "pipe", "pipe"] }
+      );
 
-      // Create vsock socket
-      // Note: Node.js net module doesn't directly support AF_VSOCK
-      // On a real Nitro instance, we use the vsock device
-      const socket = this.createVsockConnection();
+      const stdoutChunks: Buffer[] = [];
+      let stderr = "";
+      let settled = false;
 
-      const timeoutId = setTimeout(() => {
-        socket.destroy();
-        reject(new Error(`Enclave request timeout after ${this.timeout}ms`));
-      }, this.timeout);
-
-      socket.on("connect", () => {
-        // Send length-prefixed message
-        const lengthBuffer = Buffer.alloc(4);
-        lengthBuffer.writeUInt32BE(Buffer.byteLength(requestData), 0);
-        socket.write(lengthBuffer);
-        socket.write(requestData);
-      });
-
-      socket.on("data", (data: Buffer) => {
-        responseData += data.toString();
-
-        // Check if we have the complete response
-        // Protocol: 4-byte length prefix + JSON data
-        if (responseData.length >= 4) {
-          const expectedLength = Buffer.from(responseData.slice(0, 4)).readUInt32BE(0);
-          const jsonData = responseData.slice(4);
-
-          if (Buffer.byteLength(jsonData) >= expectedLength) {
-            clearTimeout(timeoutId);
-            socket.end();
-
-            try {
-              const response = JSON.parse(jsonData.slice(0, expectedLength)) as JsonRpcResponse;
-              resolve(response);
-            } catch (error) {
-              reject(new Error(`Failed to parse enclave response: ${String(error)}`));
-            }
-          }
+      const finish = (error?: Error, response?: Buffer) => {
+        if (settled) {
+          return;
         }
+
+        settled = true;
+        clearTimeout(timeoutHandle);
+
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve(response ?? Buffer.alloc(0));
+      };
+
+      const timeoutHandle = setTimeout(() => {
+        proc.kill("SIGKILL");
+        finish(new Error(`Enclave request timeout after ${this.timeout}ms`));
+      }, this.timeout + 500);
+
+      proc.stdout.on("data", (chunk: Buffer | string) => {
+        stdoutChunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
       });
 
-      socket.on("error", (error: Error) => {
-        clearTimeout(timeoutId);
+      proc.stderr.on("data", (chunk: Buffer | string) => {
+        stderr += chunk.toString();
+      });
 
-        if (error.message.includes("ENOENT") || error.message.includes("EAFNOSUPPORT")) {
-          reject(
+      proc.on("error", (error) => {
+        const errnoError = error as NodeJS.ErrnoException;
+        if (errnoError.code === "ENOENT") {
+          finish(
             new VsockNotAvailableError(
-              "vsock is not available. This code must run on a Nitro-enabled EC2 instance."
+              "socat is required for Nitro vsock communication but is not installed."
             )
           );
-        } else {
-          reject(new Error(`Enclave connection error: ${error.message}`));
+          return;
         }
+
+        finish(new Error(`Failed to execute socat: ${error.message}`));
       });
 
-      socket.on("close", () => {
-        clearTimeout(timeoutId);
+      proc.on("close", (code) => {
+        const response = Buffer.concat(stdoutChunks);
+        if (code !== 0 && response.length === 0) {
+          const suffix = stderr.trim().length > 0 ? `: ${stderr.trim()}` : "";
+          finish(new Error(`Enclave connection failed (socat exit code ${String(code)})${suffix}`));
+          return;
+        }
+
+        if (response.length === 0) {
+          const suffix = stderr.trim().length > 0 ? `: ${stderr.trim()}` : "";
+          finish(new Error(`Empty response from enclave${suffix}`));
+          return;
+        }
+
+        finish(undefined, response);
       });
+
+      proc.stdin.on("error", (error) => {
+        finish(new Error(`Failed to write enclave request: ${error.message}`));
+      });
+
+      proc.stdin.write(payload);
+      proc.stdin.end();
     });
   }
 
-  /**
-   * Create a vsock connection to the enclave
-   *
-   * On Linux with vsock support, this creates an AF_VSOCK socket.
-   * The implementation uses the vsock-native approach for Nitro Enclaves.
-   */
-  private createVsockConnection(): net.Socket {
-    // Try to use vsock via the Node.js binding
-    // This requires the machine to support AF_VSOCK (Linux with vsock kernel module)
-    try {
-      return this.createNativeVsockSocket();
-    } catch {
-      // Fallback error for non-Nitro environments
-      throw new VsockNotAvailableError(
-        `Cannot create vsock connection to CID ${this.cid}:${this.port}. ` +
-          "Ensure this code is running on a Nitro-enabled EC2 instance with enclave support."
+  private parseJsonRpcResponse(rawResponse: Buffer): JsonRpcResponse {
+    if (rawResponse.length < 4) {
+      throw new Error("Invalid enclave response: missing length prefix");
+    }
+
+    const expectedLength = rawResponse.readUInt32BE(0);
+    const jsonBuffer = rawResponse.subarray(4);
+
+    if (jsonBuffer.length < expectedLength) {
+      throw new Error(
+        `Incomplete enclave response: expected ${String(expectedLength)} bytes, got ${String(
+          jsonBuffer.length
+        )}`
       );
     }
-  }
 
-  /**
-   * Create a native vsock socket
-   *
-   * This implementation uses Node.js's internal socket creation with AF_VSOCK.
-   * On Nitro-enabled instances, the kernel supports vsock natively.
-   */
-  private createNativeVsockSocket(): net.Socket {
-    // Node.js doesn't expose AF_VSOCK directly in the net module.
-    // On Nitro instances, we use a workaround:
-    // 1. The nitro-cli starts the enclave with a vsock endpoint
-    // 2. The parent can connect using AF_VSOCK socket
-    //
-    // For production use, we recommend using a native addon or
-    // the aws-nitro-enclaves-sdk-c through FFI.
-
-    // Attempt to create socket with vsock support
-    // This will work on Linux with vsock kernel module loaded
-    const socket = new net.Socket();
-
-    // Use internal method to set socket type to AF_VSOCK
-    // This is a workaround since Node.js net module doesn't expose AF_VSOCK
-    const handle = (socket as unknown as { _handle?: { fd?: number } })._handle;
-    if (!handle) {
-      throw new Error("Failed to access socket handle");
+    const jsonPayload = jsonBuffer.subarray(0, expectedLength).toString("utf-8");
+    try {
+      return JSON.parse(jsonPayload) as JsonRpcResponse;
+    } catch (error) {
+      throw new Error(`Failed to parse enclave response: ${String(error)}`);
     }
-
-    // Connect using vsock address format
-    // On Nitro instances, the vsock subsystem handles routing to the enclave
-    socket.connect({
-      // @ts-ignore - Using undocumented vsock support
-      family: AF_VSOCK,
-      // The vsock address is specified as CID:port
-      host: String(this.cid),
-      port: this.port,
-    });
-
-    return socket;
   }
 }
 

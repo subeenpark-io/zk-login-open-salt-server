@@ -11,10 +11,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3001;
+function normalizeSaltServerBase(url) {
+    return url.replace(/\/+$/, '').replace(/\/v1\/salt$/i, '').replace(/\/v1$/i, '');
+}
+function normalizeProverBase(url) {
+    return url.replace(/\/+$/, '').replace(/\/v1$/i, '');
+}
 // Configuration
-const SALT_SERVER_URL = process.env.SALT_SERVER_URL || 'http://zklogin-prod-alb-1474010946.ap-northeast-2.elb.amazonaws.com';
-const PROVER_URL = process.env.PROVER_URL || 'https://prover-dev.mystenlabs.com';
-const SUI_RPC_URL = process.env.SUI_RPC_URL || 'https://fullnode.devnet.sui.io';
+const SALT_SERVER_URL = normalizeSaltServerBase(process.env.SALT_SERVER_URL || 'http://zklogin-prod-alb-346534019.ap-northeast-2.elb.amazonaws.com');
+const PROVER_URL = normalizeProverBase(process.env.PROVER_URL || 'https://prover.mystenlabs.com');
+const SUI_RPC_URL = process.env.SUI_RPC_URL || 'https://fullnode.testnet.sui.io';
 const SPONSOR_PRIVATE_KEY = process.env.SPONSOR_PRIVATE_KEY || '';
 const SPONSORED_TX_ENABLED = process.env.SPONSORED_TX_ENABLED !== 'false' && SPONSOR_PRIVATE_KEY.length > 0;
 const sponsorClient = new SuiClient({ url: SUI_RPC_URL });

@@ -41,7 +41,7 @@ export function computeNonce(
  * @returns Current epoch number
  */
 export async function getCurrentEpoch(): Promise<number> {
-  const rpcUrl = import.meta.env.VITE_SUI_RPC_URL || 'https://fullnode.devnet.sui.io';
+  const rpcUrl = import.meta.env.VITE_SUI_RPC_URL || 'https://fullnode.testnet.sui.io';
   const client = new SuiClient({ url: rpcUrl });
   const { epoch } = await client.getLatestSuiSystemState();
   return Number(epoch);
@@ -165,7 +165,7 @@ export async function getZKProof(
   ephemeralPublicKey: string,
   randomness: string,
   maxEpoch: number,
-  proverEndpoint = 'https://prover-dev.mystenlabs.com/v1'
+  proverEndpoint = 'https://prover.mystenlabs.com/v1'
 ): Promise<any> {
   const response = await fetch(proverEndpoint, {
     method: 'POST',
@@ -259,12 +259,17 @@ export function parseJWT(jwt: string): any {
 export async function computeAddress(jwt: string, salt: string): Promise<string> {
   const claims = parseJWT(jwt);
   const { sub, aud, iss } = claims;
+  const normalizedAud = Array.isArray(aud) ? aud[0] : aud;
+
+  if (typeof sub !== 'string' || typeof iss !== 'string' || typeof normalizedAud !== 'string') {
+    throw new Error('Invalid JWT claims for zkLogin address computation');
+  }
 
   return computeZkLoginAddress({
     claimName: 'sub',
     claimValue: sub,
     userSalt: salt,
     iss,
-    aud
+    aud: normalizedAud
   });
 }

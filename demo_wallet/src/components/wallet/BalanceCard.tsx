@@ -16,7 +16,7 @@ export function BalanceCard({ address, refreshTrigger }: BalanceCardProps) {
   const [balance, setBalance] = useState<string>("0");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const network = import.meta.env.VITE_SUI_NETWORK || "devnet";
+  const network = import.meta.env.VITE_SUI_NETWORK || "testnet";
 
   useEffect(() => {
     const fetchBalance = async () => {
@@ -47,10 +47,10 @@ export function BalanceCard({ address, refreshTrigger }: BalanceCardProps) {
           <LoadingSpinner size="sm" />
         </div>
       ) : error ? (
-        <p className="text-sm text-[#ff9f8d]">{error}</p>
+        <p className="text-sm text-[#9a4f1d]">{error}</p>
       ) : (
         <div>
-          <p className="display-font text-3xl text-[var(--text-main)]">{balance} SUI</p>
+          <p className="display-font break-words text-3xl leading-tight text-[var(--text-main)]">{balance} SUI</p>
           <p className="mt-1 text-xs text-[var(--text-dim)]">on {network}</p>
         </div>
       )}

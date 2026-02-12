@@ -140,6 +140,16 @@ export class WalletService {
   }): Promise<string> {
     const { fromAddress, toAddress, amount, privateKey, zkProof, maxEpoch, userSalt, jwt } = params;
 
+    const currentEpoch = await this.getCurrentEpoch();
+    if (maxEpoch < currentEpoch) {
+      throw new Error('Session expired. Please login again to refresh zkLogin proof.');
+    }
+
+    const expectedAddress = await this.computeZkLoginAddress(jwt, userSalt);
+    if (expectedAddress.toLowerCase() !== fromAddress.toLowerCase()) {
+      throw new Error('Session data mismatch. Please logout and login again.');
+    }
+
     // Convert SUI to MIST
     const amountInMist = BigInt(Math.floor(parseFloat(amount) * 1_000_000_000));
 
@@ -162,9 +172,14 @@ export class WalletService {
     // Parse JWT to get iss claim
     const jwtParts = jwt.split('.');
     const jwtPayload = JSON.parse(atob(jwtParts[1].replace(/-/g, '+').replace(/_/g, '/')));
+    const audience = Array.isArray(jwtPayload.aud) ? jwtPayload.aud[0] : jwtPayload.aud;
+
+    if (typeof jwtPayload.sub !== 'string' || typeof audience !== 'string' || !audience) {
+      throw new Error('Invalid JWT claims. Please login again.');
+    }
 
     // Create zkLogin signature
-    const addressSeed = this.computeAddressSeed(userSalt, jwtPayload.sub, jwtPayload.aud);
+    const addressSeed = this.computeAddressSeed(userSalt, jwtPayload.sub, audience);
     const zkLoginSignature = getZkLoginSignature({
       inputs: {
         proofPoints: zkProof.proofPoints,

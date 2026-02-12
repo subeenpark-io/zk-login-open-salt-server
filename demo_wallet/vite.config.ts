@@ -10,13 +10,13 @@ export default defineConfig({
     proxy: {
       // Proxy /api/salt to Salt Server (hides actual endpoint from browser)
       '/api/salt': {
-        target: 'http://zklogin-prod-alb-1474010946.ap-northeast-2.elb.amazonaws.com',
+        target: 'http://zklogin-prod-alb-346534019.ap-northeast-2.elb.amazonaws.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/salt/, '/v1/salt'),
       },
       // Proxy /api/prover to Mysten Prover
       '/api/prover': {
-        target: 'https://prover-dev.mystenlabs.com',
+        target: 'https://prover.mystenlabs.com',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api\/prover/, '/v1'),
         secure: true,

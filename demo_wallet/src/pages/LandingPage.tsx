@@ -7,38 +7,39 @@ import { useNavigate } from "react-router-dom";
 import { LoginButton } from "../components/wallet/LoginButton";
 import { useWalletStore } from "../store/wallet.store";
 import { Button } from "../components/ui/Button";
+import { ArrowRight, Gamepad2, Sparkles, WalletCards } from "lucide-react";
 
 const SHOWCASE_ITEMS = [
   {
-    title: "1) Google 로그인",
-    description: "앱 설치 없이 구글 계정으로 바로 시작",
+    title: "1) Sign In With Google",
+    description: "Start instantly with your existing Google account.",
   },
   {
-    title: "2) 자동 지갑 생성",
-    description: "zkLogin 주소가 즉시 생성되고 복잡한 시드 문구가 없음",
+    title: "2) Instant Wallet Creation",
+    description: "A zkLogin wallet address is created immediately with no seed phrase.",
   },
   {
-    title: "3) 온체인 액션",
-    description: "잔액 확인, 전송, 트랜잭션 검증까지 한 화면에서",
+    title: "3) Instant Wallet + On-Chain Actions",
+    description: "A zkLogin wallet is generated right away, then you can check balance and send SUI.",
   },
 ];
 
 const USE_CASES = [
-  "온보딩 체험: 60초 안에 Web2 → Web3 전환 경험",
-  "커뮤니티 보상: 지갑 연결 없이 이벤트 보상 지급",
-  "모바일 결제 데모: 주소 복사 없이 빠른 전송",
+  "Onboarding demo: move users from Web2 to Web3 in under 60 seconds.",
+  "Community rewards: distribute incentives without manual wallet setup.",
+  "Mobile payments demo: fast transfers with minimal friction.",
 ];
 
 const DAPP_EXAMPLES = [
   {
     title: "Wallet Playground",
-    description: "잔액 조회, 전송, 트랜잭션 탐색까지 기본 지갑 플로우",
+    description: "Core wallet flow for balance checks, transfers, and explorer tracking.",
     href: "/wallet",
     tag: "Live",
   },
   {
     title: "Lucky Roll Game",
-    description: "모바일 미니 게임 + 승리 라운드 온체인 클레임 데모",
+    description: "Mobile mini-game with on-chain claim actions after winning rounds.",
     href: "/dapps/game",
     tag: "New",
   },
@@ -48,7 +49,7 @@ export function LandingPage() {
   const navigate = useNavigate();
   const isAuthenticated = useWalletStore((state) => state.isAuthenticated);
   const zkAddress = useWalletStore((state) => state.zkAddress);
-  const network = import.meta.env.VITE_SUI_NETWORK ?? "devnet";
+  const network = import.meta.env.VITE_SUI_NETWORK ?? "testnet";
 
   useEffect(() => {
     if (isAuthenticated && zkAddress) {
@@ -63,13 +64,12 @@ export function LandingPage() {
       <main className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-10 pt-6 sm:px-6">
         <div className="animated-appear">
           <p className="micro-label mb-3">zkLogin Showcase DApp</p>
-          <h1 className="display-font text-4xl leading-[1.05] text-[var(--text-main)] sm:text-5xl">
-            Tap In, Sign With Google, <br />
-            Use Your Wallet Instantly.
+          <h1 className="display-font title-balance text-[clamp(2.1rem,8vw,3.8rem)] text-[var(--text-main)]">
+            Tap In, Sign With Google, Use Your Wallet Instantly.
           </h1>
-          <p className="mt-4 max-w-xl text-sm leading-relaxed text-[var(--text-dim)] sm:text-base">
-            휴대폰에서 접속해서 구글 로그인만 하면 지갑이 바로 생성됩니다.
-            생성된 지갑으로 바로 SUI 전송과 트랜잭션 확인까지 경험할 수 있습니다.
+          <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[var(--text-dim)] sm:text-base">
+            Open on mobile, sign in with Google, and get your wallet in seconds.
+            Then send SUI and verify live on-chain transactions right away.
           </p>
         </div>
 
@@ -81,7 +81,8 @@ export function LandingPage() {
                 Network: <span className="font-semibold text-[var(--text-main)]">{network}</span>
               </p>
             </div>
-            <span className="rounded-full border border-[rgba(255,255,255,0.18)] bg-[rgba(255,255,255,0.06)] px-3 py-1 text-xs font-semibold text-[var(--text-main)]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[rgba(171,123,81,0.32)] bg-[rgba(255,247,236,0.84)] px-3 py-1 text-xs font-semibold text-[var(--text-main)]">
+              <Sparkles className="h-3.5 w-3.5" />
               Mobile Ready
             </span>
           </div>
@@ -94,7 +95,7 @@ export function LandingPage() {
         <section className="animated-appear delay-2 mt-6 grid gap-3">
           {SHOWCASE_ITEMS.map((item) => (
             <article key={item.title} className="panel p-4">
-              <h2 className="display-font text-xl text-[var(--text-main)]">{item.title}</h2>
+              <h2 className="display-font text-xl leading-tight text-[var(--text-main)]">{item.title}</h2>
               <p className="mt-1 text-sm text-[var(--text-dim)]">{item.description}</p>
             </article>
           ))}
@@ -104,8 +105,11 @@ export function LandingPage() {
           <p className="micro-label">What Users Can Do</p>
           <ul className="mt-3 space-y-2">
             {USE_CASES.map((item) => (
-              <li key={item} className="flex items-start gap-2 text-sm text-[var(--text-main)]">
-                <span className="mt-1 h-2 w-2 rounded-full bg-[var(--accent-warm)]" />
+              <li
+                key={item}
+                className="grid grid-cols-[8px_1fr] items-start gap-x-2 text-sm leading-relaxed text-[var(--text-main)]"
+              >
+                <span className="mt-[0.5rem] h-2 w-2 rounded-full bg-[var(--accent-main)]" />
                 <span>{item}</span>
               </li>
             ))}
@@ -124,7 +128,13 @@ export function LandingPage() {
               </div>
               <div className="mt-4">
                 <Button variant="secondary" onClick={() => navigate(example.href)}>
+                  {example.href === "/wallet" ? (
+                    <WalletCards className="h-4 w-4 shrink-0" />
+                  ) : (
+                    <Gamepad2 className="h-4 w-4 shrink-0" />
+                  )}
                   Open Demo
+                  <ArrowRight className="h-4 w-4 shrink-0" />
                 </Button>
               </div>
             </article>

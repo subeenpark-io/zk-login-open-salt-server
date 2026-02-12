@@ -13,11 +13,11 @@ export function Button({ children, className, variant = "primary", ...props }: B
   return (
     <button
       className={cn(
-        "min-h-[46px] px-4 py-2 rounded-xl font-semibold transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center gap-2",
+        "inline-flex min-h-[46px] items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-semibold tracking-[0.01em] transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[rgba(255,107,69,0.35)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-main)]",
         variant === "primary" &&
-          "text-slate-950 bg-[var(--accent-main)] hover:bg-[var(--accent-strong)] shadow-[0_8px_24px_rgba(45,212,191,0.28)]",
+          "border border-[rgba(255,107,69,0.5)] bg-[var(--accent-main)] text-white shadow-[0_10px_26px_rgba(235,79,37,0.28)] hover:-translate-y-[1px] hover:bg-[var(--accent-strong)]",
         variant === "secondary" &&
-          "text-[var(--text-main)] bg-[rgba(168,190,238,0.12)] border border-[rgba(162,186,235,0.4)] hover:bg-[rgba(168,190,238,0.2)]",
+          "border border-[rgba(171,123,81,0.32)] bg-[rgba(255,247,236,0.84)] text-[var(--text-main)] hover:-translate-y-[1px] hover:bg-[rgba(255,240,222,0.94)]",
         className
       )}
       {...props}

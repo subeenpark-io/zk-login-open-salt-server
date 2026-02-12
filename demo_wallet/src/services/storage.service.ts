@@ -54,8 +54,10 @@ export class StorageService {
   static clearAllData(): void {
     sessionStorage.removeItem('zklogin_ephemeral');
     sessionStorage.removeItem('zklogin_jwt');
+    sessionStorage.removeItem('zklogin_salt');
     sessionStorage.removeItem('zklogin_proof');
     sessionStorage.removeItem('zklogin-wallet-storage');
+    localStorage.removeItem('zklogin-wallet-storage');
   }
 
   /**
