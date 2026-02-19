@@ -11,7 +11,11 @@ export function LoginButton() {
   const status = useWalletStore((state) => state.status);
 
   return (
-    <Button onClick={login} disabled={status === "authenticating"} className="text-lg px-6 py-3">
+    <Button
+      onClick={login}
+      disabled={status === "authenticating"}
+      className="w-full text-base sm:text-lg px-6 py-3"
+    >
       {status === "authenticating" ? (
         <>
           <LoadingSpinner size="sm" />

@@ -2,12 +2,13 @@
  * Send SUI Modal component
  */
 
-import { useState } from 'react';
-import { Button } from '../ui/Button';
-import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { WalletService } from '../../services/wallet.service';
-import { StorageService } from '../../services/storage.service';
-import { useWalletStore } from '../../store/wallet.store';
+import { useState } from "react";
+import { Button } from "../ui/Button";
+import { LoadingSpinner } from "../ui/LoadingSpinner";
+import { WalletService } from "../../services/wallet.service";
+import { StorageService } from "../../services/storage.service";
+import { ProverService } from "../../services/prover.service";
+import { useWalletStore } from "../../store/wallet.store";
 
 interface SendSuiModalProps {
   isOpen: boolean;
@@ -16,9 +17,9 @@ interface SendSuiModalProps {
 }
 
 export function SendSuiModal({ isOpen, onClose, onSuccess }: SendSuiModalProps) {
-  const { zkAddress, zkProof: storeZkProof, salt: storeSalt, jwt: storeJwt } = useWalletStore();
-  const [toAddress, setToAddress] = useState('');
-  const [amount, setAmount] = useState('');
+  const { zkAddress, salt: storeSalt, jwt: storeJwt } = useWalletStore();
+  const [toAddress, setToAddress] = useState("");
+  const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -26,31 +27,26 @@ export function SendSuiModal({ isOpen, onClose, onSuccess }: SendSuiModalProps) 
 
   const handleSend = async () => {
     if (!toAddress || !amount) {
-      setError('Please fill in all fields');
+      setError("Please fill in all fields");
       return;
     }
 
-    // Get data from store or sessionStorage
-    const salt = storeSalt || sessionStorage.getItem('zklogin_salt');
-    const jwt = storeJwt || sessionStorage.getItem('zklogin_jwt');
-    const zkProofStr = sessionStorage.getItem('zklogin_proof');
-    const zkProof = storeZkProof || (zkProofStr ? JSON.parse(zkProofStr) : null);
+    const salt = storeSalt || sessionStorage.getItem("zklogin_salt");
+    const jwt = storeJwt || sessionStorage.getItem("zklogin_jwt");
 
-    if (!zkAddress || !zkProof || !salt || !jwt) {
-      setError('Session expired. Please login again.');
+    if (!zkAddress || !salt || !jwt) {
+      setError("Session expired. Please login again.");
       return;
     }
 
-    // Validate address format
-    if (!toAddress.startsWith('0x') || toAddress.length !== 66) {
-      setError('Invalid Sui address format');
+    if (!toAddress.startsWith("0x") || toAddress.length !== 66) {
+      setError("Invalid Sui address format");
       return;
     }
 
-    // Validate amount
     const amountNum = parseFloat(amount);
-    if (isNaN(amountNum) || amountNum <= 0) {
-      setError('Invalid amount');
+    if (Number.isNaN(amountNum) || amountNum <= 0) {
+      setError("Invalid amount");
       return;
     }
 
@@ -60,8 +56,18 @@ export function SendSuiModal({ isOpen, onClose, onSuccess }: SendSuiModalProps) 
     try {
       const ephemeralData = StorageService.loadEphemeralData();
       if (!ephemeralData) {
-        throw new Error('Session expired. Please login again.');
+        throw new Error("Session expired. Please login again.");
       }
+
+      const proverService = new ProverService();
+      const freshProof = await proverService.generateZkProof({
+        jwt,
+        salt,
+        ephemeralPublicKey: ephemeralData.extendedEphemeralPublicKey,
+        maxEpoch: ephemeralData.maxEpoch,
+        randomness: ephemeralData.randomness,
+      });
+      proverService.cacheProof(freshProof);
 
       const walletService = new WalletService();
       const digest = await walletService.sendSui({
@@ -69,91 +75,92 @@ export function SendSuiModal({ isOpen, onClose, onSuccess }: SendSuiModalProps) 
         toAddress,
         amount,
         privateKey: ephemeralData.privateKey,
-        zkProof,
+        zkProof: freshProof,
         maxEpoch: ephemeralData.maxEpoch,
         userSalt: salt,
         jwt,
       });
 
       onSuccess(digest);
-      setToAddress('');
-      setAmount('');
+      setToAddress("");
+      setAmount("");
       onClose();
     } catch (err) {
-      console.error('Send failed:', err);
-      setError(err instanceof Error ? err.message : 'Failed to send SUI');
+      console.error("Send failed:", err);
+      setError(err instanceof Error ? err.message : "Failed to send SUI");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-md w-full mx-4 p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Send SUI</h2>
-
-        <div className="space-y-4">
-          {/* To Address */}
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(54,30,12,0.35)] p-4 backdrop-blur-sm sm:items-center">
+      <div className="panel w-full max-w-md p-5 sm:p-6">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <p className="micro-label">Transfer</p>
+            <h2 className="display-font mt-1 text-3xl text-[var(--text-main)]">Send SUI</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-[rgba(171,123,81,0.32)] bg-[rgba(255,247,236,0.84)] px-2 py-1 text-xs text-[var(--text-dim)] hover:text-[var(--text-main)]"
+          >
+            Close
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-4">
+          <div>
+            <label htmlFor="send-to" className="field-label">
               Recipient Address
             </label>
             <input
+              id="send-to"
               type="text"
               value={toAddress}
-              onChange={(e) => setToAddress(e.target.value)}
+              onChange={(event) => setToAddress(event.target.value)}
               placeholder="0x..."
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sui-blue focus:border-transparent"
+              className="field-input"
               disabled={loading}
             />
           </div>
 
-          {/* Amount */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="send-amount" className="field-label">
               Amount (SUI)
             </label>
             <input
+              id="send-amount"
               type="number"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(event) => setAmount(event.target.value)}
               placeholder="0.0"
               step="0.001"
               min="0"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-sui-blue focus:border-transparent"
+              className="field-input"
               disabled={loading}
             />
           </div>
 
-          {/* Error message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="rounded-xl border border-[rgba(240,173,55,0.45)] bg-[rgba(240,173,55,0.14)] p-3">
+              <p className="text-sm text-[#8f4918]">{error}</p>
             </div>
           )}
 
-          {/* Buttons */}
-          <div className="flex gap-3 pt-4">
-            <Button
-              variant="secondary"
-              onClick={onClose}
-              disabled={loading}
-              className="flex-1"
-            >
+          <div className="flex gap-3 pt-2">
+            <Button variant="secondary" onClick={onClose} disabled={loading} className="flex-1">
               Cancel
             </Button>
-            <Button
-              onClick={handleSend}
-              disabled={loading || !toAddress || !amount}
-              className="flex-1"
-            >
+            <Button onClick={handleSend} disabled={loading || !toAddress || !amount} className="flex-1">
               {loading ? (
                 <>
                   <LoadingSpinner size="sm" />
-                  <span className="ml-2">Sending...</span>
+                  <span className="ml-1">Sending...</span>
                 </>
               ) : (
-                'Send'
+                "Send"
               )}
             </Button>
           </div>

@@ -33,8 +33,12 @@ COPY --from=builder /app/dist-server ./dist-server
 # Environment variables
 ENV NODE_ENV=production
 ENV PORT=3001
-ENV SALT_SERVER_URL=http://zklogin-prod-alb-1474010946.ap-northeast-2.elb.amazonaws.com
-ENV PROVER_URL=https://prover-dev.mystenlabs.com
+ENV SALT_SERVER_URL=http://zklogin-prod-alb-346534019.ap-northeast-2.elb.amazonaws.com
+ENV PROVER_URL=https://prover.mystenlabs.com
+ENV SUI_RPC_URL=https://fullnode.testnet.sui.io
+ENV SPONSORED_TX_ENABLED=true
+# IMPORTANT: Inject real key at deploy time (secret manager / runtime env)
+ENV SPONSOR_PRIVATE_KEY=
 
 EXPOSE 3001
 

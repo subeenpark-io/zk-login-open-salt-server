@@ -2,10 +2,10 @@
  * Balance Card component
  */
 
-import { useEffect, useState } from 'react';
-import { Card } from '../ui/Card';
-import { LoadingSpinner } from '../ui/LoadingSpinner';
-import { WalletService } from '../../services/wallet.service';
+import { useEffect, useState } from "react";
+import { Card } from "../ui/Card";
+import { LoadingSpinner } from "../ui/LoadingSpinner";
+import { WalletService } from "../../services/wallet.service";
 
 interface BalanceCardProps {
   address: string;
@@ -13,9 +13,10 @@ interface BalanceCardProps {
 }
 
 export function BalanceCard({ address, refreshTrigger }: BalanceCardProps) {
-  const [balance, setBalance] = useState<string>('0');
+  const [balance, setBalance] = useState<string>("0");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const network = import.meta.env.VITE_SUI_NETWORK || "testnet";
 
   useEffect(() => {
     const fetchBalance = async () => {
@@ -26,8 +27,8 @@ export function BalanceCard({ address, refreshTrigger }: BalanceCardProps) {
         const bal = await walletService.getBalance(address);
         setBalance(bal);
       } catch (err) {
-        setError('Failed to fetch balance');
-        console.error('Balance fetch error:', err);
+        setError("Failed to fetch balance");
+        console.error("Balance fetch error:", err);
       } finally {
         setLoading(false);
       }
@@ -40,17 +41,17 @@ export function BalanceCard({ address, refreshTrigger }: BalanceCardProps) {
 
   return (
     <Card>
-      <p className="text-sm text-gray-500 mb-2">Balance</p>
+      <p className="micro-label mb-2">Balance</p>
       {loading ? (
         <div className="py-4">
           <LoadingSpinner size="sm" />
         </div>
       ) : error ? (
-        <p className="text-red-600 text-sm">{error}</p>
+        <p className="text-sm text-[#9a4f1d]">{error}</p>
       ) : (
         <div>
-          <p className="text-3xl font-bold">{balance} SUI</p>
-          <p className="text-xs text-gray-400 mt-1">on Devnet</p>
+          <p className="display-font break-words text-3xl leading-tight text-[var(--text-main)]">{balance} SUI</p>
+          <p className="mt-1 text-xs text-[var(--text-dim)]">on {network}</p>
         </div>
       )}
     </Card>

@@ -11,6 +11,7 @@ export interface Config {
   rateLimitMax: number;
   rateLimitWindowMs: number;
   saltProvider: ProviderConfig;
+  plugins?: AppConfig["plugins"] | undefined;
   oauthProviders: ReturnType<typeof loadDefaultOAuthProviders>;
 }
 
@@ -26,6 +27,7 @@ function loadConfig(): Config {
     rateLimitMax: appConfig.security.rateLimitMax,
     rateLimitWindowMs: appConfig.security.rateLimitWindowMs ?? 60000,
     saltProvider: appConfig.provider,
+    plugins: appConfig.plugins,
     oauthProviders: appConfig.oauth ?? loadDefaultOAuthProviders(),
   };
 }

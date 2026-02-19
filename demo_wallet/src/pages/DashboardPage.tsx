@@ -3,21 +3,31 @@
  */
 
 import { useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useWalletStore } from "../store/wallet.store";
 import { WalletAddress } from "../components/wallet/WalletAddress";
 import { BalanceCard } from "../components/wallet/BalanceCard";
 import { SendSuiModal } from "../components/wallet/SendSuiModal";
 import { TransactionHistory } from "../components/wallet/TransactionHistory";
 import { Button } from "../components/ui/Button";
+import { Copy, Droplets, ExternalLink, Gamepad2, LogOut, Send } from "lucide-react";
+
+const DEMO_ACTIONS = [
+  "Send your SUI to another address in a single flow.",
+  "Verify each transfer result directly in an explorer.",
+  "Experience low-friction onboarding with Google-powered login.",
+];
 
 export function DashboardPage() {
+  const navigate = useNavigate();
   const { zkAddress, isAuthenticated, logout } = useWalletStore();
   const [showSendModal, setShowSendModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [lastTxDigest, setLastTxDigest] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  // Redirect to home if not authenticated
+  const network = import.meta.env.VITE_SUI_NETWORK || "testnet";
+
   if (!isAuthenticated || !zkAddress) {
     return <Navigate to="/" replace />;
   }
@@ -27,130 +37,154 @@ export function DashboardPage() {
     setRefreshTrigger((prev) => prev + 1);
   };
 
+  const handleCopyAddress = async () => {
+    try {
+      await navigator.clipboard.writeText(zkAddress);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy address:", error);
+    }
+  };
+
+  const faucetUrl = `https://faucet.sui.io/?network=${network}`;
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-4xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold text-sui-dark">zkLogin Wallet</h1>
-          <Button variant="secondary" onClick={logout}>
-            Logout
-          </Button>
-        </div>
-      </header>
+    <div className="relative min-h-screen min-h-[100dvh] safe-area-inset overflow-hidden">
+      <div className="ambient-grid" />
 
-      {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="mb-6">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">My Wallet</h2>
-          <p className="text-gray-600 mt-1">Manage your Sui assets</p>
-        </div>
-
-        {/* Success message */}
-        {lastTxDigest && (
-          <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-between">
+      <main className="relative z-10 mx-auto w-full max-w-4xl px-4 pb-10 pt-6 sm:px-6">
+        <section className="panel animated-appear p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-sm text-green-800">
-                <strong>Transaction sent!</strong>
+              <p className="micro-label">Wallet Ready</p>
+              <h1 className="display-font title-balance mt-2 text-[clamp(2rem,7.3vw,3.2rem)] text-[var(--text-main)]">
+                Your zkLogin Wallet is Live.
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--text-dim)] sm:text-base">
+                Your wallet is created right after Google sign-in. You can execute transactions
+                immediately and inspect results in an explorer.
               </p>
-              <a
-                href={`https://${import.meta.env.VITE_SUI_NETWORK || "devnet"}.suivision.xyz/txblock/${lastTxDigest}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-green-600 hover:underline font-mono"
-              >
-                {lastTxDigest.slice(0, 16)}...{lastTxDigest.slice(-8)}
-              </a>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="tag-badge">{network}</span>
+                <span className="tag-badge">Google Authenticated</span>
+              </div>
             </div>
-            <button
-              onClick={() => setLastTxDigest(null)}
-              className="text-green-600 hover:text-green-800"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+            <Button variant="secondary" onClick={logout} className="w-full sm:w-auto">
+              <LogOut className="h-4 w-4 shrink-0" />
+              Logout
+            </Button>
           </div>
+        </section>
+
+        {lastTxDigest && (
+          <section className="panel animated-appear delay-1 mt-5 border-[rgba(28,154,137,0.42)] p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold text-[var(--text-main)]">Transaction Sent</p>
+                <a
+                  href={`https://${network}.suivision.xyz/txblock/${lastTxDigest}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-1 inline-block font-mono text-xs text-[var(--accent-main)] hover:underline"
+                >
+                  {lastTxDigest.slice(0, 16)}...{lastTxDigest.slice(-8)}
+                  <ExternalLink className="ml-1 inline h-3 w-3 align-[-1px]" />
+                </a>
+              </div>
+              <button
+                type="button"
+                onClick={() => setLastTxDigest(null)}
+                className="rounded-lg border border-[rgba(171,123,81,0.32)] bg-[rgba(255,247,236,0.84)] px-2 py-1 text-xs text-[var(--text-dim)] hover:text-[var(--text-main)]"
+              >
+                Close
+              </button>
+            </div>
+          </section>
         )}
 
-        {/* Address and Balance Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <section className="animated-appear delay-1 mt-6 grid gap-4 md:grid-cols-2">
           <WalletAddress address={zkAddress} />
           <BalanceCard address={zkAddress} refreshTrigger={refreshTrigger} />
-        </div>
+        </section>
 
-        {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <h3 className="text-xl font-semibold mb-4">Quick Actions</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <section className="panel animated-appear delay-2 mt-6 p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="micro-label">Quick Demo Actions</p>
+            <p className="text-xs text-[var(--text-dim)]">Ready for instant mobile testing</p>
+          </div>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Button onClick={() => setShowSendModal(true)}>
-              <svg
-                className="w-5 h-5 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                />
-              </svg>
+              <Send className="h-4 w-4 shrink-0" />
               Send SUI
+            </Button>
+            <Button variant="secondary" onClick={handleCopyAddress}>
+              <Copy className="h-4 w-4 shrink-0" />
+              {copied ? "Address Copied" : "Copy Address"}
             </Button>
             <Button
               variant="secondary"
               onClick={() => {
-                navigator.clipboard.writeText(zkAddress);
-                alert("Address copied to clipboard!");
+                window.open(faucetUrl, "_blank", "noopener,noreferrer");
               }}
             >
-              <svg
-                className="w-5 h-5 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"
-                />
-              </svg>
-              Copy Address
+              <Droplets className="h-4 w-4 shrink-0" />
+              Open Faucet
             </Button>
           </div>
-        </div>
+        </section>
 
-        {/* Transaction History */}
-        <TransactionHistory address={zkAddress} refreshTrigger={refreshTrigger} />
+        <section className="panel animated-appear delay-2 mt-6 p-5 sm:p-6">
+          <p className="micro-label">What Users Can Do Now</p>
+          <ul className="mt-3 space-y-2">
+            {DEMO_ACTIONS.map((item) => (
+              <li
+                key={item}
+                className="grid grid-cols-[8px_1fr] items-start gap-x-2 text-sm leading-relaxed text-[var(--text-main)]"
+              >
+                <span className="mt-[0.5rem] h-2 w-2 rounded-full bg-[var(--accent-warm)]" />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
 
-        {/* Info Section */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-800">
-            <strong>Note:</strong> This is a demo wallet running on Sui Devnet. Get free devnet SUI
-            from the{" "}
+        <section className="panel animated-appear delay-2 mt-6 p-5 sm:p-6">
+          <p className="micro-label">DApp Examples</p>
+          <p className="mt-2 text-sm text-[var(--text-dim)]">
+            Try interactive dApps — each action sends a real on-chain transaction.
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Button onClick={() => navigate("/dapps/slots")}>
+              <Gamepad2 className="h-4 w-4 shrink-0" />
+              Sui Slots
+            </Button>
+            <Button variant="secondary" onClick={() => navigate("/dapps/game")}>
+              <Gamepad2 className="h-4 w-4 shrink-0" />
+              Lucky Roll
+            </Button>
+          </div>
+        </section>
+
+        <section className="animated-appear delay-3 mt-6">
+          <TransactionHistory address={zkAddress} refreshTrigger={refreshTrigger} />
+        </section>
+
+        <section className="panel animated-appear delay-3 mt-6 p-4">
+          <p className="text-sm text-[var(--text-dim)]">
+            Explorer account view:{" "}
             <a
-              href="https://faucet.sui.io/?network=devnet"
+              href={`https://${network}.suivision.xyz/account/${zkAddress}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="underline hover:text-blue-600"
+              className="font-medium text-[var(--accent-main)] hover:underline"
             >
-              Sui Faucet
+              {zkAddress.slice(0, 10)}...{zkAddress.slice(-8)}
             </a>
-            .
           </p>
-        </div>
+        </section>
       </main>
 
-      {/* Send Modal */}
       <SendSuiModal
         isOpen={showSendModal}
         onClose={() => setShowSendModal(false)}

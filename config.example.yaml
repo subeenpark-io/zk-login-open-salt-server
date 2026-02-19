@@ -17,6 +17,22 @@ security:
   rateLimitMax: 100 # Max requests per window
   rateLimitWindowMs: 60000 # 1 minute
 
+# Optional plugin-style request guards (enable only what you need)
+# plugins:
+#   # Require an API key header for /v1/salt
+#   apiKeyAuth:
+#     enabled: true
+#     headerName: "x-api-key"    # optional (default: x-api-key)
+#     valueEnvVar: "SALT_API_KEY" # optional (default: SALT_API_KEY)
+#     # value: "hardcoded-for-local-dev-only"
+#
+#   # Allow only specific JWT aud values (supports '*' wildcard)
+#   audAllowlist:
+#     enabled: true
+#     audiences:
+#       - "my-google-client-id.apps.googleusercontent.com"
+#       - "my-staging-*"
+
 # Salt Provider Configuration
 # Choose ONE of the following provider configurations:
 

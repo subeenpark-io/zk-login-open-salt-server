@@ -46,6 +46,9 @@ SALT_PROVIDER_MODE=local
 SEED_SOURCE=nitro
 NITRO_ENCLAVE_CID=16
 NITRO_VSOCK_PORT=${vsock_port}
+NITRO_VSOCK_TIMEOUT=5000
+NITRO_BOOTSTRAP_RETRIES=8
+NITRO_BOOTSTRAP_RETRY_DELAY_MS=3000
 PORT=${app_port}
 AWS_REGION=${aws_region}
 KMS_KEY_ID=${kms_key_id}
@@ -130,10 +133,58 @@ MANAGE_SCRIPT
 
 chmod +x /opt/zklogin/manage-enclave.sh
 
-# Set permissions
-chown -R ec2-user:ec2-user /opt/zklogin
+# Create enclave bootstrap script (initialize ENCRYPTED_SEED via vsock RPC)
+cat > /opt/zklogin/bootstrap-enclave.sh << 'BOOTSTRAP_SCRIPT'
+#!/bin/bash
+set -euo pipefail
 
-# Install CloudWatch agent for logging
+if [ ! -f /opt/zklogin/.env ]; then
+    echo "ERROR: /opt/zklogin/.env not found"
+    exit 1
+fi
+
+if [ ! -f /opt/zklogin/dist/tools/nitro-bootstrap.js ]; then
+    echo "ERROR: /opt/zklogin/dist/tools/nitro-bootstrap.js not found"
+    echo "Upload app artifacts first (dist + package files)."
+    exit 1
+fi
+
+set -a
+source /opt/zklogin/.env
+set +a
+
+cd /opt/zklogin
+node dist/tools/nitro-bootstrap.js
+BOOTSTRAP_SCRIPT
+
+chmod +x /opt/zklogin/bootstrap-enclave.sh
+
+# DApp server directory
+mkdir -p /opt/zklogin-dapp/logs
+
+cat > /etc/systemd/system/zklogin-dapp.service << 'SERVICE'
+[Unit]
+Description=zkLogin DApp Server
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/opt/zklogin-dapp
+EnvironmentFile=/opt/zklogin-dapp/.env
+ExecStart=/usr/bin/node /opt/zklogin-dapp/dist-server/index.js
+Restart=always
+RestartSec=5
+StandardOutput=append:/opt/zklogin-dapp/logs/app.log
+StandardError=append:/opt/zklogin-dapp/logs/app.log
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+chown -R ec2-user:ec2-user /opt/zklogin
+chown -R ec2-user:ec2-user /opt/zklogin-dapp
+
 yum install -y amazon-cloudwatch-agent
 
 cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'CWAGENT'
@@ -171,6 +222,7 @@ echo ""
 echo "Next steps:"
 echo "1. Upload application code to /opt/zklogin"
 echo "2. Upload enclave EIF to /opt/zklogin/enclave/"
-echo "3. Encrypt master seed with KMS and configure enclave"
+echo "3. Inject ENCRYPTED_SEED/KMS_KEY_ID into /opt/zklogin/.env"
 echo "4. Run: /opt/zklogin/manage-enclave.sh start"
-echo "5. Enable: systemctl enable --now zklogin-salt"
+echo "5. Run: /opt/zklogin/bootstrap-enclave.sh"
+echo "6. Enable: systemctl enable --now zklogin-salt"

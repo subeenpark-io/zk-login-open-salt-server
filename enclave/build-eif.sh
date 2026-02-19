@@ -77,7 +77,14 @@ echo "  - PCR values: $PCR_OUTPUT_FILE"
 echo ""
 echo "PCR Values (for KMS key policy):"
 echo "---"
-cat "$PCR_OUTPUT_FILE" | grep -A 20 "PCRs"
+# Nitro CLI output schema can differ by version (e.g. "PCRs" vs "Measurements").
+if grep -q '"PCRs"' "$PCR_OUTPUT_FILE"; then
+    grep -A 20 "PCRs" "$PCR_OUTPUT_FILE" || true
+elif grep -q '"Measurements"' "$PCR_OUTPUT_FILE"; then
+    grep -A 20 "Measurements" "$PCR_OUTPUT_FILE" || true
+else
+    cat "$PCR_OUTPUT_FILE"
+fi
 echo "---"
 echo ""
 echo "Next steps:"

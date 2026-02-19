@@ -5,6 +5,7 @@
 import { useState, useEffect } from "react";
 import { WalletService } from "../../services/wallet.service";
 import { LoadingSpinner } from "../ui/LoadingSpinner";
+import { Card } from "../ui/Card";
 
 interface Transaction {
   digest: string;
@@ -20,7 +21,7 @@ export function TransactionHistory({ address, refreshTrigger }: TransactionHisto
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const network = import.meta.env.VITE_SUI_NETWORK || "devnet";
+  const network = import.meta.env.VITE_SUI_NETWORK || "testnet";
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -57,31 +58,31 @@ export function TransactionHistory({ address, refreshTrigger }: TransactionHisto
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-xl font-semibold mb-4">Recent Transactions</h3>
+      <Card>
+        <h3 className="display-font text-2xl text-[var(--text-main)]">Recent Transactions</h3>
         <div className="flex justify-center py-8">
           <LoadingSpinner />
         </div>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-xl font-semibold">Recent Transactions</h3>
+    <Card>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="display-font text-2xl text-[var(--text-main)]">Recent Transactions</h3>
         <a
           href={`https://${network}.suivision.xyz/account/${address}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-sui-blue hover:underline"
+          className="text-sm text-[var(--accent-main)] hover:underline"
         >
           View all
         </a>
       </div>
 
       {transactions.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="py-8 text-center text-[var(--text-dim)]">
           <p>No transactions yet</p>
         </div>
       ) : (
@@ -89,24 +90,24 @@ export function TransactionHistory({ address, refreshTrigger }: TransactionHisto
           {transactions.map((tx) => (
             <div
               key={tx.digest}
-              className="flex items-center justify-between py-3 border-b border-gray-100 last:border-0"
+              className="flex flex-col gap-1 rounded-lg border border-[rgba(171,123,81,0.2)] bg-[rgba(255,249,240,0.84)] px-3 py-3 sm:flex-row sm:items-center sm:justify-between last:mb-0"
             >
               <a
                 href={explorerUrl(tx.digest)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-mono text-sm text-sui-blue hover:underline"
+                className="break-all font-mono text-xs text-[var(--accent-main)] hover:underline sm:text-sm"
                 title={tx.digest}
               >
                 {tx.digest.slice(0, 10)}...{tx.digest.slice(-8)}
               </a>
-              <span className="text-xs text-gray-400 ml-4 whitespace-nowrap">
+              <span className="text-xs text-[var(--text-dim)] sm:whitespace-nowrap">
                 {formatTime(tx.timestampMs)}
               </span>
             </div>
           ))}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

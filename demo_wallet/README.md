@@ -56,15 +56,23 @@ VITE_GOOGLE_CLIENT_ID=your_google_client_id_here
 VITE_REDIRECT_URI=http://localhost:5173/auth/callback
 
 # Salt Server (already deployed)
-VITE_SALT_SERVER_URL=http://zklogin-prod-alb-1474010946.ap-northeast-2.elb.amazonaws.com/v1/salt
+VITE_SALT_SERVER_URL=http://zklogin-prod-alb-346534019.ap-northeast-2.elb.amazonaws.com/v1/salt
 
 # Mysten Labs Prover
-VITE_PROVER_URL=https://prover-dev.mystenlabs.com/v1
+VITE_PROVER_URL=https://prover.mystenlabs.com/v1
 
 # Sui Network
-VITE_SUI_NETWORK=devnet
-VITE_SUI_RPC_URL=https://fullnode.devnet.sui.io
+VITE_SUI_NETWORK=testnet
+VITE_SUI_RPC_URL=https://fullnode.testnet.sui.io
+
+# Server-side Sponsor (gasless demo)
+# Never expose this as VITE_*.
+SPONSORED_TX_ENABLED=true
+SPONSOR_PRIVATE_KEY=suiprivkey1...
+SUI_RPC_URL=https://fullnode.testnet.sui.io
 ```
+
+For production server (`npm run prod` / PM2 / Docker), make sure `SPONSOR_PRIVATE_KEY` is injected as a runtime secret.
 
 ### 3. Google OAuth Setup
 
@@ -90,6 +98,16 @@ npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+If you want gasless sponsored transactions in local dev, run the sponsor server too:
+
+```bash
+npm run build:server
+SPONSORED_TX_ENABLED=true \
+SPONSOR_PRIVATE_KEY=suiprivkey1... \
+SUI_RPC_URL=https://fullnode.testnet.sui.io \
+node dist-server/index.js
+```
 
 ## Build
 
@@ -160,7 +178,7 @@ const { keypair, nonce } = await generateEphemeralKeyPair();
 ```typescript
 // After OAuth callback
 const salt = await saltService.fetchSalt(jwt);
-// Calls: POST http://zklogin-prod-alb-1474010946.../v1/salt
+// Calls: POST http://zklogin-prod-alb-346534019.../v1/salt
 ```
 
 ### 3. Address Computation
@@ -180,7 +198,7 @@ const zkProof = await proverService.generateZkProof({
   maxEpoch,
   randomness
 });
-// Calls: https://prover-dev.mystenlabs.com/v1
+// Calls: https://prover.mystenlabs.com/v1
 ```
 
 ## Security
@@ -220,6 +238,16 @@ If ZK proof generation takes too long (>10 seconds):
 - Check network connection
 - Verify Mysten Prover is accessible
 - Try again (sometimes the prover service is slow)
+
+### Sponsored Transaction Disabled
+
+- If send/claim fails with sponsor error, check server env:
+  - `SPONSORED_TX_ENABLED=true`
+  - `SPONSOR_PRIVATE_KEY=suiprivkey1...`
+  - `SUI_RPC_URL=https://fullnode.testnet.sui.io`
+- Confirm server logs show:
+  - `Sponsored TX: enabled`
+  - `Sponsor Address: 0x...`
 
 ## Tech Stack
 

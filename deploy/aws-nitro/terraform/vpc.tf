@@ -152,11 +152,18 @@ resource "aws_security_group" "ec2" {
   description = "Security group for EC2 instance"
   vpc_id      = aws_vpc.main.id
 
-  # Allow traffic from ALB
   ingress {
-    description     = "HTTP from ALB"
+    description     = "Salt Server from ALB"
     from_port       = var.app_port
     to_port         = var.app_port
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
+  ingress {
+    description     = "DApp Server from ALB"
+    from_port       = 8080
+    to_port         = 8080
     protocol        = "tcp"
     security_groups = [aws_security_group.alb.id]
   }

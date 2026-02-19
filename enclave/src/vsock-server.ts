@@ -15,10 +15,7 @@
  */
 
 import * as net from "node:net";
-
-// vsock constants
-const AF_VSOCK = 40;
-const VMADDR_CID_ANY = -1;
+import * as fs from "node:fs";
 
 /**
  * JSON-RPC 2.0 request format
@@ -102,6 +99,7 @@ export class VsockServer {
   private readonly maxConnections: number;
   private readonly methods = new Map<string, MethodHandler>();
   private connectionCount = 0;
+  private unixSocketPath: string | null = null;
 
   constructor(options: VsockServerOptions) {
     this.port = options.port;
@@ -124,47 +122,36 @@ export class VsockServer {
    */
   async start(): Promise<void> {
     return new Promise((resolve, reject) => {
-      try {
-        this.server = net.createServer((socket) => {
-          this.handleConnection(socket);
-        });
+      const socketPath = process.env.ENCLAVE_RPC_SOCKET_PATH ?? "/tmp/zklogin-enclave-rpc.sock";
+      this.unixSocketPath = socketPath;
 
-        // Configure server
-        this.server.maxConnections = this.maxConnections;
-
-        // Error handling
-        this.server.on("error", (error) => {
-          console.error("[vsock-server] Server error:", error.message);
-          reject(error);
-        });
-
-        // Start listening on vsock
-        // Note: In a real Nitro Enclave, this would use AF_VSOCK
-        // For development/testing, we use a regular TCP socket
-        this.server.listen(
-          {
-            // @ts-expect-error - Using vsock-specific options
-            family: AF_VSOCK,
-            host: String(VMADDR_CID_ANY),
-            port: this.port,
-          },
-          () => {
-            console.log(`[vsock-server] Listening on vsock port ${this.port}`);
-            resolve();
-          }
-        );
-      } catch (error) {
-        // Fallback to TCP for development/testing
-        console.log("[vsock-server] vsock not available, falling back to TCP");
-        this.server = net.createServer((socket) => {
-          this.handleConnection(socket);
-        });
-
-        this.server.listen(this.port, "127.0.0.1", () => {
-          console.log(`[vsock-server] Listening on TCP port ${this.port} (development mode)`);
-          resolve();
-        });
+      // Remove stale socket file from previous runs.
+      if (fs.existsSync(socketPath)) {
+        try {
+          fs.unlinkSync(socketPath);
+        } catch {
+          // If unlink fails, server.listen below will surface the actual bind error.
+        }
       }
+
+      this.server = net.createServer((socket) => {
+        this.handleConnection(socket);
+      });
+
+      // Configure server
+      this.server.maxConnections = this.maxConnections;
+
+      // Error handling
+      this.server.on("error", (error) => {
+        console.error("[vsock-server] Server error:", error.message);
+        reject(error);
+      });
+
+      // Enclave RPC server binds on a UNIX domain socket; host connectivity is bridged by socat VSOCK-LISTEN.
+      this.server.listen(socketPath, () => {
+        console.log(`[vsock-server] Listening on UNIX socket ${socketPath}`);
+        resolve();
+      });
     });
   }
 
@@ -182,6 +169,14 @@ export class VsockServer {
         if (error) {
           reject(error);
         } else {
+          if (this.unixSocketPath && fs.existsSync(this.unixSocketPath)) {
+            try {
+              fs.unlinkSync(this.unixSocketPath);
+            } catch {
+              // Best-effort cleanup.
+            }
+          }
+          this.unixSocketPath = null;
           this.server = null;
           console.log("[vsock-server] Stopped");
           resolve();

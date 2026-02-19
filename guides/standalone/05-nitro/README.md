@@ -15,24 +15,38 @@ master seed를 하드웨어 수준에서 격리합니다.
 - Terraform (인프라 배포)
 - AWS CLI v2
 
+## 배포 준비 체크리스트
+
+아래 항목만 준비하면 됩니다.
+
+1. AWS 인증
+```bash
+aws sts get-caller-identity
+```
+
+2. Terraform 변수 파일
+```bash
+cp deploy/aws-nitro/terraform/terraform.tfvars.example \
+   deploy/aws-nitro/terraform/terraform.tfvars
+# aws_region / environment / instance_type 등 수정
+```
+
+3. (선택) 고정 master seed
+- 미지정 시 배포 스크립트가 자동 생성합니다.
+- 고정 운영을 원하면 `--seed-hex 0x...`로 전달합니다.
+
+4. (선택) EIF 로컬 빌드 환경
+- `--build-eif`를 쓰려면 로컬에 Docker + nitro-cli 필요
+- 준비되지 않았다면 미리 만든 EIF를 `enclave/zklogin-enclave.eif`에 두고 실행 가능
+
 ## 배포 방법
 
 전체 Nitro Enclaves 구현은 다음 디렉토리에 있습니다:
 
 ```
-deploy/aws-nitro/
-├── terraform/          # EC2, VPC, ALB, KMS
-│   ├── main.tf
-│   ├── vpc.tf
-│   ├── ec2.tf
-│   ├── alb.tf
-│   ├── kms.tf
-│   └── ...
-├── enclave/           # Enclave 애플리케이션
-│   ├── src/
-│   ├── Dockerfile
-│   └── build-eif.sh
-└── README.md          # 상세 배포 가이드
+deploy/aws-nitro/terraform/   # EC2, VPC, ALB, KMS
+enclave/                      # Enclave 애플리케이션 (EIF 빌드)
+guides/standalone/05-nitro/   # 이 문서
 ```
 
 ## 빠른 시작
@@ -58,111 +72,194 @@ terraform plan
 terraform apply
 ```
 
-Next Steps:
------------
+## 원클릭 스크립트 (권장)
 
-1. Build the enclave image:
-   cd enclave && ./build-eif.sh
+루트에서 아래 명령 하나로 인프라 생성 + enclave bootstrap까지 진행할 수 있습니다.
 
-2. Note the PCR0 value from the build output
+### 사용자 배포용 (다운로드 후 바로 실행)
 
-3. Update terraform.tfvars with PCR0:
-   enclave_pcr0 = "<pcr0-value-from-build>"
-
-4. Apply the updated configuration:
-   terraform apply
-
-5. Connect to EC2 instance (via SSM):
-   aws ssm start-session --target i-0550035c460b5f191
-
-6. Upload files to EC2:
-   # Application code
-   scp -r dist/ ec2-user@<instance>:/opt/zklogin/
-
-   # Enclave image
-   scp enclave/zklogin-enclave.eif ec2-user@<instance>:/opt/zklogin/enclave/
-
-7. Encrypt master seed with KMS:
-   aws kms encrypt \
-     --key-id arn:aws:kms:ap-northeast-2:121218089941:key/5f996870-db72-47ec-9c54-ab7d1f3d06e1 \
-     --plaintext fileb://master-seed.bin \
-     --output text --query CiphertextBlob > encrypted-seed.b64
-
-8. Set encrypted seed in enclave environment:
-   export ENCRYPTED_SEED=$(cat encrypted-seed.b64)
-
-9. Start the enclave:
-   /opt/zklogin/run-enclave.sh
-
-10. Start the salt server:
-    sudo systemctl enable --now zklogin-salt
-
-11. Test the endpoint:
-    curl -X POST http://zklogin-prod-alb-1474010946.ap-northeast-2.elb.amazonaws.com/v1/salt \
-      -H "Content-Type: application/json" \
-      -d '{"jwt": "<your-jwt>"}'
-
-============================================
-
-### 2. EC2 접속
+저장소를 받은 사용자가 최소 입력으로 바로 올리려면 `nitro-quickstart.sh`를 사용하세요.
 
 ```bash
-# Terraform output에서 IP 확인
-EC2_IP=$(terraform output -raw ec2_public_ip)
+# 1) 저장소 다운로드 후 루트로 이동
+cd zk-login-open-salt-server
 
-# SSH 접속
-ssh -i ~/.ssh/your-key.pem ec2-user@$EC2_IP
+# 2) 실행 권한 (zip 다운로드 시 필요)
+chmod +x scripts/nitro-quickstart.sh scripts/nitro-up.sh
+
+# 3) 배포 실행 (EC2 + Enclave + bootstrap)
+./scripts/nitro-quickstart.sh \
+  --region ap-northeast-2 \
+  --instance-type c6i.xlarge
+
+# (선택) SSH 키를 붙이고 싶으면
+./scripts/nitro-quickstart.sh \
+  --region ap-northeast-2 \
+  --instance-type c6i.xlarge \
+  --key-name my-ec2-key
+
+# (권장) 사전 빌드 EIF URL을 사용해 reproducible 배포
+./scripts/nitro-quickstart.sh \
+  --region ap-northeast-2 \
+  --instance-type c6i.xlarge \
+  --eif-url "https://<your-release-or-s3>/zklogin-enclave.eif" \
+  --eif-sha256 "<sha256>"
 ```
 
+`nitro-quickstart.sh`는 다음을 자동으로 처리합니다.
+- `deploy/aws-nitro/terraform/terraform.tfvars`가 없으면 example에서 생성
+- 전달한 값(`aws_region`, `environment`, `instance_type`, `key_name`)을 tfvars에 반영
+- EIF 준비 자동화: 기존 파일 사용 또는 URL 다운로드(`--eif-url`) 또는 로컬 빌드(`--build-eif`)
+- 기존 `./scripts/nitro-up.sh`를 호출해 전체 배포 진행
 
+> 참고: `EIF`는 파일 크기가 커서 보통 Git에 커밋하지 않고 Release/S3에서 내려받는 방식을 권장합니다.
 
-
-### 3. Enclave 시작
+내릴 때는 아래 스크립트를 사용합니다.
 
 ```bash
-# Enclave 시작
-sudo nitro-cli run-enclave \
-  --eif-path /app/zklogin-enclave.eif \
-  --cpu-count 2 \
-  --memory 512 \
-  --debug-mode
+# 서비스/엔클레이브 중지 + terraform destroy
+./scripts/nitro-down.sh
 
-# Enclave 상태 확인
-sudo nitro-cli describe-enclaves
-
-# Enclave 로그 확인
-ENCLAVE_ID=$(sudo nitro-cli describe-enclaves | jq -r '.[0].EnclaveID')
-sudo nitro-cli console --enclave-id $ENCLAVE_ID
+# 인스턴스 내부 서비스/엔클레이브만 중지
+./scripts/nitro-down.sh --stop-only
 ```
 
-### 4. Salt Server 시작
+### 2. 고급 모드 (디버깅/세부 제어 시)
+
+일반 사용자 배포는 `nitro-quickstart.sh`를 권장합니다.
+아래는 내부 단계별 제어가 필요할 때만 사용하세요.
+
+#### 2-1) 래퍼 스크립트 (`scripts/nitro-up.sh`)
+
+```bash
+# terraform apply + 앱/EIF/ENCRYPTED_SEED bootstrap
+./scripts/nitro-up.sh
+
+# EIF를 로컬에서 빌드
+./scripts/nitro-up.sh --build-eif
+
+# seed 고정
+./scripts/nitro-up.sh --seed-hex "0x<64-hex>"
+```
+
+#### 2-2) 저수준 배포 스크립트 (`guides/standalone/05-nitro/deploy-nitro.sh`)
+
+아래 스크립트는 다음 작업을 한 번에 수행합니다.
+- 앱 빌드 + 아티팩트 패키징
+- EIF 업로드
+- master seed KMS 암호화 후 `ENCRYPTED_SEED` 주입
+- SSM으로 enclave start + bootstrap + `zklogin-salt` 재시작
+
+```bash
+cd guides/standalone/05-nitro
+
+# 기본: Terraform output으로 instance/kms 자동 조회
+./deploy-nitro.sh --build-eif
+
+# 또는 seed 직접 지정
+./deploy-nitro.sh --build-eif --seed-hex "0x<64-hex>"
+```
+
+수동 제어가 필요하면 아래 수동 절차를 사용하세요.
+
+### 3. Enclave 이미지(EIF) 빌드
+
+```bash
+# repo 루트에서 실행
+cd enclave
+./build-eif.sh
+
+# 출력의 PCR0 값을 기록
+# 예시: enclave_pcr0 = "<pcr0-value>"
+```
+
+### 4. PCR0 반영 후 Terraform 재적용
+
+```bash
+cd deploy/aws-nitro/terraform
+# terraform.tfvars의 enclave_pcr0 업데이트
+terraform apply
+```
+
+### 4. Terraform 출력값 확인
+
+```bash
+cd deploy/aws-nitro/terraform
+EC2_INSTANCE_ID=$(terraform output -raw ec2_instance_id)
+SALT_URL=$(terraform output -raw salt_server_url)
+KMS_KEY_ARN=$(terraform output -raw kms_key_arn)
+```
+
+### 5. EC2 접속 (SSM)
+
+```bash
+aws ssm start-session --target "$EC2_INSTANCE_ID"
+```
+
+### 6. Enclave 시작
+
+> 참고: user-data에서 `/opt/zklogin/run-enclave.sh`와 `/opt/zklogin/manage-enclave.sh`가 생성됩니다.
+
+```bash
+# (사전 준비) EIF 파일 업로드
+# /opt/zklogin/enclave/zklogin-enclave.eif 경로에 배치
+
+# Enclave 실행
+sudo /opt/zklogin/manage-enclave.sh start
+
+# 상태 확인
+sudo /opt/zklogin/manage-enclave.sh status
+```
+
+### 7. ENCRYPTED_SEED bootstrap 실행
+
+```bash
+# /opt/zklogin/.env에 ENCRYPTED_SEED, KMS_KEY_ID, AWS_REGION 등이 있어야 함
+sudo /opt/zklogin/bootstrap-enclave.sh
+```
+
+### 8. Salt Server 시작
 
 ```bash
 # Systemd로 자동 시작 (이미 설정됨)
-sudo systemctl status salt-server
+sudo systemctl status zklogin-salt
 
 # 수동 시작
-cd /app/salt-server
-npm start
+sudo systemctl enable --now zklogin-salt
 ```
 
-### 5. 테스트
+### 9. 테스트
 
 ```bash
-# ALB URL 확인
-ALB_URL=$(terraform output -raw alb_url)
+# SALT_URL 확인 (terraform output)
+echo "$SALT_URL"
 
 # Health check
-curl https://$ALB_URL/health
+curl "$SALT_URL/health"
 
 # Ready check (Enclave 연결 확인)
-curl https://$ALB_URL/ready
+curl "$SALT_URL/ready"
 
 # Salt API (JWT 필요)
-curl -X POST https://$ALB_URL/v1/salt \
+curl -X POST "$SALT_URL/v1/salt" \
   -H "Content-Type: application/json" \
   -d '{"jwt": "eyJhbGciOiJSUzI1NiIs..."}'
 ```
+
+### 6. KMS 복호화 준비
+
+암호화된 seed 생성 예시:
+
+```bash
+aws kms encrypt \
+  --key-id "$KMS_KEY_ARN" \
+  --plaintext fileb://master-seed.bin \
+  --output text \
+  --query CiphertextBlob > encrypted-seed.b64
+```
+
+수동 절차에서는 생성된 `CiphertextBlob`을 `.env`에 넣고
+`/opt/zklogin/bootstrap-enclave.sh`를 실행해야 enclave가 초기화됩니다.
 
 ## 동작 방식
 

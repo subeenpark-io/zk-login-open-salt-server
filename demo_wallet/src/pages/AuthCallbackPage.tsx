@@ -2,18 +2,24 @@
  * Auth Callback Page - Handles OAuth callback and wallet creation
  */
 
-import { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useWalletStore } from '../store/wallet.store';
-import { AuthService } from '../services/auth.service';
-import { LoadingSpinner } from '../components/ui/LoadingSpinner';
-import { Button } from '../components/ui/Button';
+import { useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { useWalletStore } from "../store/wallet.store";
+import { AuthService } from "../services/auth.service";
+import { LoadingSpinner } from "../components/ui/LoadingSpinner";
+import { Button } from "../components/ui/Button";
+
+const BUILD_STEPS = [
+  "Prepare wallet parameters from the backend.",
+  "Compute the zkLogin address from the JWT.",
+  "Generate a ZK proof with the Mysten prover.",
+];
 
 export function AuthCallbackPage() {
   const navigate = useNavigate();
-  const handleCallback = useWalletStore(state => state.handleCallback);
-  const status = useWalletStore(state => state.status);
-  const error = useWalletStore(state => state.error);
+  const handleCallback = useWalletStore((state) => state.handleCallback);
+  const status = useWalletStore((state) => state.status);
+  const error = useWalletStore((state) => state.error);
 
   useEffect(() => {
     const processCallback = async () => {
@@ -23,52 +29,68 @@ export function AuthCallbackPage() {
       if (jwt) {
         await handleCallback(jwt);
       } else {
-        navigate('/', { state: { error: 'No JWT token received from OAuth provider' } });
+        navigate("/", { state: { error: "No JWT token received from OAuth provider" } });
       }
     };
 
     processCallback();
   }, [handleCallback, navigate]);
 
-  // Redirect to dashboard when ready
   useEffect(() => {
-    if (status === 'ready') {
-      navigate('/wallet');
+    if (status === "ready") {
+      navigate("/wallet");
     }
   }, [status, navigate]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50">
-      {status === 'loading' && (
-        <div className="text-center">
-          <LoadingSpinner size="lg" />
-          <p className="mt-4 text-gray-600 text-lg font-medium">
-            Generating zkLogin wallet...
-          </p>
-          <p className="mt-2 text-sm text-gray-500">
-            This may take a few seconds while we:
-          </p>
-          <ul className="mt-2 text-sm text-gray-500 space-y-1">
-            <li>✓ Fetch your salt from Salt Server</li>
-            <li>✓ Compute your zkLogin address</li>
-            <li>✓ Generate ZK proof from Mysten Prover</li>
-          </ul>
-        </div>
-      )}
+    <div className="relative min-h-screen min-h-[100dvh] safe-area-inset overflow-hidden">
+      <div className="ambient-grid" />
 
-      {error && (
-        <div className="text-center max-w-md">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6 mb-4">
-            <h2 className="text-lg font-semibold text-red-800 mb-2">
-              Authentication Failed
-            </h2>
-            <p className="text-red-600 text-sm mb-4">{error}</p>
-          </div>
-          <Button onClick={() => navigate('/')}>
-            Back to Home
-          </Button>
-        </div>
-      )}
+      <main className="relative z-10 mx-auto flex min-h-[80dvh] w-full max-w-xl items-center justify-center px-4 sm:px-6">
+        {status === "loading" && (
+          <section className="panel w-full p-6 text-center sm:p-7">
+            <p className="micro-label">Preparing Wallet</p>
+            <h1 className="display-font title-balance mt-2 text-3xl text-[var(--text-main)]">
+              Building Your zkLogin Wallet
+            </h1>
+            <p className="mt-3 text-sm text-[var(--text-dim)]">
+              Verifying your login token and generating your wallet address.
+              This usually takes a moment.
+            </p>
+
+            <div className="mt-5">
+              <LoadingSpinner size="lg" />
+            </div>
+
+            <ul className="mt-5 space-y-2 text-left">
+              {BUILD_STEPS.map((step) => (
+                <li key={step} className="flex items-start gap-2 text-sm text-[var(--text-main)]">
+                  <span className="mt-1 h-2 w-2 rounded-full bg-[var(--accent-main)]" />
+                  <span>{step}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {error && (
+          <section className="panel w-full p-6 sm:p-7">
+            <p className="micro-label">Authentication Error</p>
+            <h2 className="display-font mt-2 text-2xl text-[var(--text-main)]">Login Failed</h2>
+            <p className="mt-3 rounded-xl border border-[rgba(240,173,55,0.48)] bg-[rgba(240,173,55,0.14)] p-3 text-sm text-[#8f4918]">
+              {error}
+            </p>
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <Button onClick={() => navigate("/")} className="flex-1">
+                Back to Home
+              </Button>
+              <Button variant="secondary" onClick={() => window.location.reload()} className="flex-1">
+                Retry
+              </Button>
+            </div>
+          </section>
+        )}
+      </main>
     </div>
   );
 }

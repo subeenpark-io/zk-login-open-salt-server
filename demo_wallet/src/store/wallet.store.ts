@@ -30,11 +30,25 @@ export const useWalletStore = create<WalletState>()(
        */
       login: async () => {
         try {
-          set({ status: 'authenticating', error: null });
+          StorageService.clearAllData();
+          set({
+            isAuthenticated: false,
+            jwt: null,
+            salt: null,
+            zkAddress: null,
+            zkProof: null,
+            status: 'authenticating',
+            error: null,
+          });
           const authService = new AuthService();
           await authService.initiateOAuthFlow();
         } catch (error) {
           set({
+            isAuthenticated: false,
+            jwt: null,
+            salt: null,
+            zkAddress: null,
+            zkProof: null,
             status: 'error',
             error: error instanceof Error ? error.message : 'Login failed'
           });
@@ -48,7 +62,15 @@ export const useWalletStore = create<WalletState>()(
        * - Generates ZK proof
        */
       handleCallback: async (jwt: string) => {
-        set({ status: 'loading', jwt, error: null });
+        set({
+          isAuthenticated: false,
+          jwt,
+          salt: null,
+          zkAddress: null,
+          zkProof: null,
+          status: 'loading',
+          error: null,
+        });
 
         try {
           // 1. Validate JWT
@@ -98,7 +120,13 @@ export const useWalletStore = create<WalletState>()(
           });
 
         } catch (error) {
+          StorageService.clearAllData();
           set({
+            isAuthenticated: false,
+            jwt: null,
+            salt: null,
+            zkAddress: null,
+            zkProof: null,
             status: 'error',
             error: error instanceof Error ? error.message : 'Failed to process callback'
           });

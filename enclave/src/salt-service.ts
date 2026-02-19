@@ -5,7 +5,7 @@
  * The seed is stored securely in enclave memory and never leaves the enclave.
  *
  * Salt derivation uses HKDF (HMAC-based Key Derivation Function) with SHA-256:
- * salt = HKDF-SHA256(seed, info="{sub}:{aud}", length=32)
+ * salt = HKDF-SHA256(seed, info="{sub}:{aud}", length=16)
  */
 
 import { hkdf } from "@noble/hashes/hkdf";
@@ -58,8 +58,8 @@ export class SaltService {
     // - ikm (input key material): master seed
     // - salt: undefined (optional in HKDF)
     // - info: "{sub}:{aud}"
-    // - length: 32 bytes
-    const salt = hkdf(sha256, this.seed, undefined, info, 32);
+    // - length: 16 bytes (zkLogin-compatible)
+    const salt = hkdf(sha256, this.seed, undefined, info, 16);
 
     // Return as hex string with 0x prefix
     return "0x" + Buffer.from(salt).toString("hex");
