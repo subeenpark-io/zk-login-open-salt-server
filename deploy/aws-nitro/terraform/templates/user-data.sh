@@ -159,10 +159,32 @@ BOOTSTRAP_SCRIPT
 
 chmod +x /opt/zklogin/bootstrap-enclave.sh
 
-# Set permissions
-chown -R ec2-user:ec2-user /opt/zklogin
+# DApp server directory
+mkdir -p /opt/zklogin-dapp/logs
 
-# Install CloudWatch agent for logging
+cat > /etc/systemd/system/zklogin-dapp.service << 'SERVICE'
+[Unit]
+Description=zkLogin DApp Server
+After=network.target
+
+[Service]
+Type=simple
+User=ec2-user
+WorkingDirectory=/opt/zklogin-dapp
+EnvironmentFile=/opt/zklogin-dapp/.env
+ExecStart=/usr/bin/node /opt/zklogin-dapp/dist-server/index.js
+Restart=always
+RestartSec=5
+StandardOutput=append:/opt/zklogin-dapp/logs/app.log
+StandardError=append:/opt/zklogin-dapp/logs/app.log
+
+[Install]
+WantedBy=multi-user.target
+SERVICE
+
+chown -R ec2-user:ec2-user /opt/zklogin
+chown -R ec2-user:ec2-user /opt/zklogin-dapp
+
 yum install -y amazon-cloudwatch-agent
 
 cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json << 'CWAGENT'

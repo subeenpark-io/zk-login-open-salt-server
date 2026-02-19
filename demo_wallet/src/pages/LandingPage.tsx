@@ -20,7 +20,8 @@ const SHOWCASE_ITEMS = [
   },
   {
     title: "3) Instant Wallet + On-Chain Actions",
-    description: "A zkLogin wallet is generated right away, then you can check balance and send SUI.",
+    description:
+      "A zkLogin wallet is generated right away, then you can check balance and send SUI.",
   },
 ];
 
@@ -38,10 +39,17 @@ const DAPP_EXAMPLES = [
     tag: "Live",
   },
   {
-    title: "Lucky Roll Game",
-    description: "Mobile mini-game with on-chain claim actions after winning rounds.",
-    href: "/dapps/game",
+    title: "Sui Slots",
+    description:
+      "Spin the reels — every spin is a real on-chain transaction. Watch the full tx pipeline live.",
+    href: "/dapps/slots",
     tag: "New",
+  },
+  {
+    title: "Lucky Roll Game",
+    description: "Simple dice game with on-chain claim actions after winning rounds.",
+    href: "/dapps/game",
+    tag: "Classic",
   },
 ];
 
@@ -68,8 +76,8 @@ export function LandingPage() {
             Tap In, Sign With Google, Use Your Wallet Instantly.
           </h1>
           <p className="mt-4 max-w-2xl text-sm leading-relaxed text-[var(--text-dim)] sm:text-base">
-            Open on mobile, sign in with Google, and get your wallet in seconds.
-            Then send SUI and verify live on-chain transactions right away.
+            Open on mobile, sign in with Google, and get your wallet in seconds. Then send SUI and
+            verify live on-chain transactions right away.
           </p>
         </div>
 
@@ -95,7 +103,9 @@ export function LandingPage() {
         <section className="animated-appear delay-2 mt-6 grid gap-3">
           {SHOWCASE_ITEMS.map((item) => (
             <article key={item.title} className="panel p-4">
-              <h2 className="display-font text-xl leading-tight text-[var(--text-main)]">{item.title}</h2>
+              <h2 className="display-font text-xl leading-tight text-[var(--text-main)]">
+                {item.title}
+              </h2>
               <p className="mt-1 text-sm text-[var(--text-dim)]">{item.description}</p>
             </article>
           ))}

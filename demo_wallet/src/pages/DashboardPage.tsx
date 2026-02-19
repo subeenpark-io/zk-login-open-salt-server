@@ -62,8 +62,8 @@ export function DashboardPage() {
                 Your zkLogin Wallet is Live.
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[var(--text-dim)] sm:text-base">
-                Your wallet is created right after Google sign-in.
-                You can execute transactions immediately and inspect results in an explorer.
+                Your wallet is created right after Google sign-in. You can execute transactions
+                immediately and inspect results in an explorer.
               </p>
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 <span className="tag-badge">{network}</span>
@@ -150,16 +150,18 @@ export function DashboardPage() {
         </section>
 
         <section className="panel animated-appear delay-2 mt-6 p-5 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="micro-label">DApp Examples</p>
-              <p className="mt-2 text-sm text-[var(--text-dim)]">
-                Alongside the wallet demo, users can launch a game-style dApp instantly.
-              </p>
-            </div>
-            <Button onClick={() => navigate("/dapps/game")}>
+          <p className="micro-label">DApp Examples</p>
+          <p className="mt-2 text-sm text-[var(--text-dim)]">
+            Try interactive dApps — each action sends a real on-chain transaction.
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Button onClick={() => navigate("/dapps/slots")}>
               <Gamepad2 className="h-4 w-4 shrink-0" />
-              Open Game DApp
+              Sui Slots
+            </Button>
+            <Button variant="secondary" onClick={() => navigate("/dapps/game")}>
+              <Gamepad2 className="h-4 w-4 shrink-0" />
+              Lucky Roll
             </Button>
           </div>
         </section>
